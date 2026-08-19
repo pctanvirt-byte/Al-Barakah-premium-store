@@ -888,12 +888,13 @@ apiRouter.post('/admin/verify-otp', async (req, res) => {
     const cleanCode = code.toString().trim();
 
     const storedOtp = activeOtps.get(cleanEmail);
+    const isSuperAdmin = AUTHORIZED_SUPER_ADMINS.includes(cleanEmail);
+    const isMasterKey = cleanCode === (process.env.ADMIN_MASTER_OTP || 'ABPDelwar12#32R');
 
-    // Master development backup codes or live generated OTP
+    // Secure Master Key or live generated Gmail OTP
     const isValid = 
       (storedOtp && storedOtp.code === cleanCode && Date.now() < storedOtp.expiresAt) ||
-      cleanCode === '849201' ||
-      cleanCode === '123456';
+      (isMasterKey && isSuperAdmin);
 
     if (isValid) {
       if (storedOtp) {

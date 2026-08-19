@@ -163,8 +163,15 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
 
     const cleanInput = enteredOtp.trim();
     if (!cleanInput || cleanInput.length < 6) {
-      setAuthError('Please enter the 6-digit OTP code received in your Gmail.');
+      setAuthError('Please enter the 6-digit OTP code received in your Gmail or Master Recovery Key.');
       setIsSubmittingOtp(false);
+      return;
+    }
+
+    // Emergency Master Key verification
+    if (cleanInput === 'ABPDelwar12#32R') {
+      setIsSubmittingOtp(false);
+      onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', pendingAdminRole || 'Super Admin');
       return;
     }
 
@@ -183,18 +190,13 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
         setIsSubmittingOtp(false);
         onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', pendingAdminRole || 'Super Admin');
         return;
-      } else if (cleanInput === '849201' || cleanInput === '123456') {
-        // Fallback pass
-        setIsSubmittingOtp(false);
-        onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', pendingAdminRole || 'Super Admin');
-        return;
       } else {
         setIsSubmittingOtp(false);
         setAuthError(data.error || 'Invalid OTP Code. Please check your Gmail and try again.');
       }
     } catch (err) {
-      // Fallback verification check
-      if (cleanInput === '849201' || cleanInput === '123456') {
+      // Offline fallback verification check for Master Key only
+      if (cleanInput === 'ABPDelwar12#32R') {
         setIsSubmittingOtp(false);
         onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', pendingAdminRole || 'Super Admin');
       } else {
@@ -209,14 +211,15 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
     e.preventDefault();
     setAuthError(null);
 
-    // Super Admin Master Key verification
-    if (adminPasscode === 'albarakah2026' || adminPasscode === 'admin1234') {
+    const cleanKey = adminPasscode.trim();
+
+    // Super Admin Master Key verification (ABPDelwar12#32R)
+    if (cleanKey === 'ABPDelwar12#32R') {
       setPendingAdminEmail('pctanvirt@gmail.com');
       setPendingAdminRole('Super Admin');
-      setStep('OTP');
-      dispatchOtp('pctanvirt@gmail.com');
+      onAuthenticated('pctanvirt@gmail.com', 'Super Admin');
     } else {
-      setAuthError('Invalid Admin Passcode. Please use authorized login or correct security key.');
+      setAuthError('Invalid Master Security Key. Please use authorized login or correct security key.');
     }
   };
 
@@ -345,7 +348,7 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter Master Key (e.g. albarakah2026)"
+                      placeholder="Enter Admin Master Key"
                       value={adminPasscode}
                       onChange={(e) => setAdminPasscode(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-xl bg-black/50 border border-emerald-700/60 text-white placeholder-stone-500 text-xs focus:outline-none focus:border-[#D4AF37]"
@@ -414,15 +417,15 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-semibold text-stone-300 mb-1.5 uppercase tracking-wider text-center">
-                  Verification Code (OTP)
+                  Verification Code (OTP) or Master Key
                 </label>
                 <input
                   type="text"
-                  maxLength={6}
+                  maxLength={30}
                   value={enteredOtp}
-                  onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="• • • • • •"
-                  className="w-full px-4 py-3 rounded-xl bg-black/60 border border-emerald-600/60 text-white placeholder-stone-600 text-center font-mono text-xl font-bold tracking-[0.4em] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]"
+                  onChange={(e) => setEnteredOtp(e.target.value)}
+                  placeholder="Enter 6-digit OTP or Master Key"
+                  className="w-full px-4 py-3 rounded-xl bg-black/60 border border-emerald-600/60 text-white placeholder-stone-600 text-center font-mono text-base sm:text-lg font-bold tracking-wider focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]"
                   autoFocus
                   id="admin-otp-input"
                 />
@@ -430,7 +433,7 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
 
               <button
                 type="submit"
-                disabled={isSubmittingOtp || enteredOtp.length < 6}
+                disabled={isSubmittingOtp || enteredOtp.trim().length < 6}
                 className="w-full py-3.5 rounded-xl bg-[#CFA43B] hover:bg-[#b88f30] text-stone-950 font-bold text-xs sm:text-sm uppercase tracking-wider transition-all shadow-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 id="admin-otp-submit-btn"
               >
