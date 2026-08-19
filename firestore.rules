@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is a Super Admin
+    function isSuperAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'albarakahpremium10@gmail.com' ||
+        request.auth.token.email == 'pctanvirt@gmail.com'
+      );
+    }
+
+    // 1. Products: Public read, Super Admin only write/delete
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // 1. Categories: Public read, Super Admin only write/delete
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // 2. Orders & Customer Privacy Protection:
+    // - Public can place orders (create)
+    // - Public can lookup single order status by ID (get)
+    // - Only Super Admin can list all orders or update/delete orders
+    match /orders/{orderId} {
+      allow create: if true;
+      allow get: if true;
+      allow list, update, delete: if isSuperAdmin();
+    }
+
+    // Reviews: Public read & create verified review, Super Admin only delete/moderate
+    match /reviews/{reviewId} {
+      allow read, create: if true;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // 3. Store Settings (Banners, bKash numbers, Pixel & Domain configs):
+    // - Public can read configuration
+    // - Super Admin only write/update
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+  }
+}

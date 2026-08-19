@@ -1,0 +1,975 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  CheckCircle2, 
+  ShieldCheck, 
+  Truck, 
+  PhoneCall, 
+  Star, 
+  Clock, 
+  Sparkles, 
+  Flame, 
+  Eye, 
+  ChevronDown, 
+  ChevronRight, 
+  ArrowRight, 
+  MessageCircle, 
+  Package, 
+  RotateCcw, 
+  Award, 
+  ThumbsUp, 
+  ExternalLink,
+  ChevronLeft,
+  ShoppingBag,
+  HelpCircle,
+  X,
+  Share2,
+  Check
+} from 'lucide-react';
+import { Product, Order, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, LandingPageVariant } from '../types';
+import { AlBarakahLogo } from './AlBarakahLogo';
+
+interface ProductLandingPageProps {
+  product: Product;
+  onClose: () => void;
+  onPlaceOrder: (order: Partial<Order>) => Promise<Order | void> | void;
+  deliveryConfig?: DeliveryConfig;
+  onOpenStore?: () => void;
+}
+
+export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
+  product,
+  onClose,
+  onPlaceOrder,
+  deliveryConfig = DEFAULT_DELIVERY_CONFIG,
+  onOpenStore,
+}) => {
+  const formRef = useRef<HTMLDivElement>(null);
+  const [selectedImgIndex, setSelectedImgIndex] = useState(0);
+
+  // Dynamic landing page configuration with robust fallbacks
+  const lpConfig = product.landingPage || {};
+  const headline = lpConfig.headline || product.name;
+  const subheadline = lpConfig.subheadline || product.description;
+  const highlightBadge = lpConfig.highlightBadge || '🔥 সীমিত সময়ের স্পেশাল অফার - ক্যাশ অন ডেলিভারি';
+  const bannerNote = lpConfig.bannerNote || '🎉 আজকের বিশেষ অফার: ৫ লিটার ফ্যামিলি প্যাক নিলে ডেলিভারি সম্পূর্ণ ফ্রি!';
+  const customerHelpline = lpConfig.customerHelpline || '01712-345678';
+  
+  const defaultVariants: LandingPageVariant[] = (lpConfig.variants && lpConfig.variants.length > 0)
+    ? lpConfig.variants
+    : [
+        {
+          id: 'v-standard',
+          label: product.weight || product.name,
+          size: product.weight || 'Standard',
+          price: product.price,
+          originalPrice: product.originalPrice,
+          isPopular: true,
+          freeDelivery: product.price >= (deliveryConfig.freeDeliveryThreshold || 2000),
+        }
+      ];
+
+  const [selectedVariant, setSelectedVariant] = useState<LandingPageVariant>(
+    defaultVariants.find(v => v.isPopular) || defaultVariants[0]
+  );
+
+  // Order Form State
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryLocation, setDeliveryLocation] = useState<'inside_dhaka' | 'outside_dhaka'>('inside_dhaka');
+  const [orderNotes, setOrderNotes] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState<Order | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Live countdown timer state (hours, minutes, seconds)
+  const [timeLeft, setTimeLeft] = useState({ hours: 4, minutes: 38, seconds: 45 });
+  const [liveViewers] = useState(() => Math.floor(Math.random() * 18) + 32);
+
+  // Active images
+  const allImages = product.images && product.images.length > 0 
+    ? product.images 
+    : [product.image || 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=800&auto=format&fit=crop&q=80'];
+
+  // Countdown effect
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
+        if (prev.minutes > 0) return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
+        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
+        return { hours: 5, minutes: 59, seconds: 59 };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const scrollToForm = () => {
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Calculations
+  const unitPrice = selectedVariant.price;
+  const subtotal = unitPrice * quantity;
+  
+  // Delivery Fee calculation
+  const isFreeDeliveryApplicable = 
+    selectedVariant.freeDelivery || 
+    (deliveryConfig.enableFreeDelivery && subtotal >= deliveryConfig.freeDeliveryThreshold);
+
+  const deliveryFee = isFreeDeliveryApplicable 
+    ? 0 
+    : (deliveryLocation === 'inside_dhaka' ? deliveryConfig.insideDhakaCharge : deliveryConfig.outsideDhakaCharge);
+
+  const grandTotal = subtotal + deliveryFee;
+
+  const handleShareLink = () => {
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.origin}${window.location.pathname}?landing=${product.id}`;
+      navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    }
+  };
+
+  const handleSubmitOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationError(null);
+
+    const cleanName = customerName.trim();
+    const cleanPhone = customerPhone.trim();
+    const cleanAddress = deliveryAddress.trim();
+
+    if (!cleanName) {
+      setValidationError('দয়া করে আপনার পুরো নাম লিখুন।');
+      return;
+    }
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setValidationError('দয়া করে সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন (যেমন: 017xxxxxxxx)।');
+      return;
+    }
+
+    if (!cleanAddress || cleanAddress.length < 5) {
+      setValidationError('দয়া করে আপনার পূর্ণ ঠিকানা (বাসা নং, রোড, থানা, জেলা) লিখুন।');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const orderPayload: Partial<Order> = {
+        id: `ALB-${Date.now().toString().slice(-6)}`,
+        customerName: cleanName,
+        customerPhone: cleanPhone,
+        deliveryAddress: cleanAddress,
+        cityDistrict: deliveryLocation === 'inside_dhaka' ? 'ঢাকা সিটি (Inside Dhaka)' : 'ঢাকার বাইরে (Outside Dhaka)',
+        subtotalAmount: subtotal,
+        deliveryFee: deliveryFee,
+        totalAmount: grandTotal,
+        currency: 'BDT',
+        paymentMethod: 'Cash on Delivery (ক্যাশ অন ডেলিভারি)',
+        paymentStatus: 'UNPAID',
+        orderStatus: 'PENDING',
+        notes: orderNotes.trim() ? `[Landing Page] ${orderNotes.trim()}` : '[Landing Page Direct Order]',
+        createdAt: new Date().toISOString(),
+        items: [
+          {
+            id: `item-${Date.now()}`,
+            productId: product.id,
+            productNameSnapshot: `${product.name} (${selectedVariant.label})`,
+            productImageSnapshot: allImages[0] || product.image,
+            unitPriceSnapshot: unitPrice,
+            quantity: quantity,
+            selectedSize: selectedVariant.size,
+            totalPrice: subtotal,
+          }
+        ],
+        customer: {
+          fullName: cleanName,
+          email: '',
+          phone: cleanPhone,
+          address: cleanAddress,
+          city: deliveryLocation === 'inside_dhaka' ? 'Dhaka' : 'Outside Dhaka',
+          paymentMethod: 'Cash on Delivery',
+        }
+      };
+
+      const res = await onPlaceOrder(orderPayload);
+      setOrderSuccess((res as Order) || (orderPayload as Order));
+      setIsSubmitting(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.error('Order submission error:', err);
+      setIsSubmitting(false);
+      setValidationError('অর্ডার সম্পন্ন করতে সমস্যা হয়েছে। দয়া করে পুনরায় চেষ্টা করুন বা সরাসরি কল করুন।');
+    }
+  };
+
+  const keyBenefits = lpConfig.keyBenefits || [
+    '১০০% ঐতিহ্যবাহী কাঠের ঘানি ভাঙা দেশি সরিষার তেল',
+    'কোনো প্রকার কেমিক্যাল, প্রিজারভেটিভ বা কৃত্রিম ঝাঁঝ মুক্ত',
+    'উচ্চ ঝাঁঝ, প্রাকৃতিক সোনালী রং এবং স্বাস্থ্যকর খাঁটি পুষ্টি',
+    'ডেলিভারি ম্যানের সামনে ঘ্রাণ ও ঝাঁঝ দেখে মূল্য পরিশোধের সুবিধা'
+  ];
+
+  const trustPoints = lpConfig.trustPoints || [
+    'ক্যাশ অন ডেলিভারিতে পণ্য বুঝে পেয়ে মূল্য পরিশোধ করুন',
+    'সারা বাংলাদেশে ২-৩ কার্যদিবসে দ্রুত হোম ডেলিভারি',
+    'নিরাপদ, ফুড-গ্রেড লিক-প্রুফ বোতল প্যাকেজিং',
+    '২৪/৭ কাস্টমার সাপোর্ট ও হেল্পলাইন সেবা'
+  ];
+
+  const faqs = lpConfig.faqs || [
+    {
+      question: 'পণ্য কীভাবে ডেলিভারি পাব এবং টাকা কীভাবে দেব?',
+      answer: 'আমাদের ডেলিভারি ম্যান সরাসরি আপনার ঠিকানায় পণ্য পৌঁছে দেবে। পণ্য হাতে পেয়ে চেক করে তারপর ডেলিভারি ম্যানকে ক্যাশ টাকা পরিশোধ করবেন।'
+    },
+    {
+      question: 'পণ্য পছন্দ না হলে কি রিটার্ন করা যাবে?',
+      answer: 'অবশ্যই! ডেলিভারি ম্যান থাকা অবস্থায় বোতলের ঝাঁঝ ও মান পরীক্ষা করে বিন্দুমাত্র অপছন্দ হলে সাথে সাথে কোনো চার্জ ছাড়াই ফেরত দিতে পারবেন।'
+    },
+    {
+      question: 'কতদিনের মধ্যে ডেলিভারি পাওয়া যাবে?',
+      answer: 'ঢাকার ভেতরে ২৪ থেকে ৪৮ ঘণ্টার মধ্যে এবং ঢাকার বাইরে ২ থেকে ৩ কার্যদিবসের মধ্যে ডেলিভারি সম্পন্ন হয়।'
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans pb-24 selection:bg-emerald-500 selection:text-white" id="albarakah-sales-landing-page">
+      
+      {/* 1. TOP URGENCY ANNOUNCEMENT BAR */}
+      <div className="bg-gradient-to-r from-emerald-900 via-stone-900 to-emerald-900 text-white text-xs sm:text-sm py-2.5 px-4 sticky top-0 z-40 shadow-md border-b border-emerald-800/40">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center">
+          <div className="flex items-center gap-2 flex-wrap justify-center font-medium">
+            <span className="bg-amber-500 text-stone-950 font-bold px-2 py-0.5 rounded text-[11px] animate-pulse">
+              HOT OFFER
+            </span>
+            <span>{bannerNote}</span>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5 text-amber-300 font-mono font-bold bg-black/40 px-2.5 py-1 rounded-md border border-amber-500/30">
+              <Clock className="w-3.5 h-3.5" />
+              <span>অফার শেষ হতে বাকি: {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}</span>
+            </div>
+            
+            <a 
+              href={`tel:${customerHelpline}`}
+              className="hidden md:flex items-center gap-1.5 text-emerald-300 hover:text-white transition-colors"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>হেল্পলাইন: {customerHelpline}</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. MAIN HEADER BAR */}
+      <header className="bg-white/95 backdrop-blur-md border-b border-stone-200 py-3 px-4 sticky top-10 sm:top-10 z-30 shadow-xs">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlBarakahLogo className="h-9 sm:h-11 w-auto" />
+            <div className="hidden sm:block">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-800 block leading-none">
+                100% Pure & Authentic
+              </span>
+              <span className="text-xs text-stone-500 font-medium">আল-বারাকাহ প্রিমিয়াম অর্গানিক</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleShareLink}
+              type="button"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer border border-stone-300"
+              title="ফেসবুক অ্যাডের লিংক কপি করুন"
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
+              <span>{copiedLink ? 'লিংক কপি হয়েছে!' : 'শেয়ার / অ্যাড লিংক'}</span>
+            </button>
+
+            {onOpenStore && (
+              <button
+                onClick={onOpenStore}
+                type="button"
+                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>মেইন শপ দেখুন</span>
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              type="button"
+              className="p-1.5 rounded-lg text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* 3. ORDER SUCCESS OVERLAY SCREEN (IF ORDER PLACED) */}
+      {orderSuccess && (
+        <div className="max-w-2xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-3xl border-2 border-emerald-500 shadow-2xl text-center space-y-6 animate-in fade-in zoom-in duration-300">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-50 shadow-inner">
+            <CheckCircle2 className="w-12 h-12" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+              অর্ডার সফলভাবে গৃহীত হয়েছে!
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-stone-900">
+              ধন্যবাদ, {orderSuccess.customerName || customerName}!
+            </h1>
+            <p className="text-sm text-stone-600 max-w-md mx-auto">
+              আপনার অর্ডারটি আমাদের সিস্টেমে সফলভাবে জমা হয়েছে। আমাদের প্রতিনিধি দ্রুত আপনার সাথে ফোনে যোগাযোগ করে ডেলিভারি কনফার্ম করবেন।
+            </p>
+          </div>
+
+          <div className="bg-stone-50 rounded-2xl p-5 border border-stone-200 text-left space-y-3 font-mono text-sm">
+            <div className="flex justify-between border-b border-stone-200 pb-2">
+              <span className="text-stone-500 font-sans">অর্ডার ট্র্যাকিং আইডি:</span>
+              <span className="font-bold text-emerald-700">{orderSuccess.id}</span>
+            </div>
+            <div className="flex justify-between border-b border-stone-200 pb-2">
+              <span className="text-stone-500 font-sans">পণ্য:</span>
+              <span className="font-bold text-stone-800">{product.name} ({selectedVariant.label})</span>
+            </div>
+            <div className="flex justify-between border-b border-stone-200 pb-2">
+              <span className="text-stone-500 font-sans">পরিমাণ:</span>
+              <span className="font-bold text-stone-800">{quantity} টি</span>
+            </div>
+            <div className="flex justify-between border-b border-stone-200 pb-2">
+              <span className="text-stone-500 font-sans">পেমেন্ট মেথড:</span>
+              <span className="font-bold text-stone-800">ক্যাশ অন ডেলিভারি</span>
+            </div>
+            <div className="flex justify-between text-base font-bold text-stone-900 pt-1 font-sans">
+              <span>সর্বমোট প্রদেয় টাকা:</span>
+              <span className="text-emerald-700 font-mono text-lg">৳{(orderSuccess.totalAmount || grandTotal).toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href={`tel:${customerHelpline}`}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition-all shadow-md"
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>হেল্পলাইনে কল করুন ({customerHelpline})</span>
+            </a>
+
+            <button
+              onClick={() => {
+                setOrderSuccess(null);
+                if (onOpenStore) onOpenStore();
+                else onClose();
+              }}
+              type="button"
+              className="w-full sm:w-auto px-6 py-3.5 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold rounded-xl transition-all"
+            >
+              আরও কেনাকাটা করুন
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!orderSuccess && (
+        <main className="max-w-6xl mx-auto px-4 py-6 space-y-12 sm:space-y-16">
+          
+          {/* 4. HERO SECTION */}
+          <section className="bg-white rounded-3xl border border-stone-200 shadow-xl overflow-hidden p-5 sm:p-8 lg:p-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+              
+              {/* Media Column (Gallery & Real Photos) */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-50 border border-stone-200 flex items-center justify-center p-4 group">
+                  <img 
+                    src={allImages[selectedImgIndex] || allImages[0]} 
+                    alt={product.name}
+                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                    referrerPolicy="no-referrer"
+                  />
+
+                  {/* 100% Authentic Quality Badge */}
+                  <div className="absolute top-4 left-4 bg-emerald-800/90 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md">
+                    <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                    <span>১০০% খাঁটি ও আসল পণ্য</span>
+                  </div>
+
+                  {/* Discount percentage tag */}
+                  {selectedVariant.originalPrice && selectedVariant.originalPrice > selectedVariant.price && (
+                    <div className="absolute top-4 right-4 bg-red-600 text-white text-xs font-extrabold px-3 py-1.5 rounded-full shadow-md animate-bounce">
+                      {Math.round(((selectedVariant.originalPrice - selectedVariant.price) / selectedVariant.originalPrice) * 100)}% ছাড়
+                    </div>
+                  )}
+                </div>
+
+                {/* Thumbnails */}
+                {allImages.length > 1 && (
+                  <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                    {allImages.map((img, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedImgIndex(idx)}
+                        className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 transition-all p-1 bg-white shrink-0 cursor-pointer ${
+                          selectedImgIndex === idx 
+                            ? 'border-emerald-600 ring-2 ring-emerald-500/30' 
+                            : 'border-stone-200 opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Live Social Proof Badge */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 text-xs sm:text-sm font-medium">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping inline-block" />
+                    <span>বর্তমানে <strong>{liveViewers} জন</strong> এই পেজটি দেখছেন</span>
+                  </div>
+                  <span className="text-red-700 font-bold">স্টক সীমিত!</span>
+                </div>
+              </div>
+
+              {/* Product Headline & Fast CTA */}
+              <div className="lg:col-span-6 space-y-6">
+                
+                {/* Special Highlight Tag */}
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  <span>{highlightBadge}</span>
+                </div>
+
+                {/* Main Headline */}
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-stone-900 leading-tight">
+                  {headline}
+                </h1>
+
+                {/* Rating & Verified Tag */}
+                <div className="flex items-center gap-3 flex-wrap text-sm">
+                  <div className="flex items-center gap-1 text-amber-500">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    ))}
+                  </div>
+                  <span className="font-bold text-stone-800">৫.০ / ৫.০</span>
+                  <span className="text-stone-400">•</span>
+                  <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded text-xs">
+                    ৪৫০+ ভেরিফায়েড কাস্টমার রিভিউ
+                  </span>
+                </div>
+
+                {/* Subheadline description */}
+                <p className="text-stone-600 text-base sm:text-lg leading-relaxed">
+                  {subheadline}
+                </p>
+
+                {/* Interactive Package Cards */}
+                <div className="space-y-3 pt-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600">
+                    প্যাকেজ সাইজ নির্বাচন করুন:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {defaultVariants.map((variant) => {
+                      const isSelected = selectedVariant.id === variant.id;
+                      return (
+                        <div
+                          key={variant.id}
+                          onClick={() => setSelectedVariant(variant)}
+                          className={`relative p-3.5 rounded-2xl border-2 transition-all cursor-pointer text-left flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                              : 'border-stone-200 bg-white hover:border-stone-300'
+                          }`}
+                        >
+                          {variant.isPopular && (
+                            <span className="absolute -top-2.5 right-2 bg-amber-500 text-stone-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              বেস্ট সেলার
+                            </span>
+                          )}
+                          <div>
+                            <div className="font-bold text-stone-900 text-sm">{variant.label}</div>
+                            {variant.freeDelivery && (
+                              <span className="text-[11px] font-bold text-emerald-700 block mt-0.5">
+                                🚚 ফ্রি ডেলিভারি
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-stone-200/60 flex items-baseline gap-2">
+                            <span className="text-lg font-black text-emerald-700">
+                              ৳{variant.price.toLocaleString()}
+                            </span>
+                            {variant.originalPrice && variant.originalPrice > variant.price && (
+                              <span className="text-xs text-stone-400 line-through">
+                                ৳{variant.originalPrice.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Quick CTA Button directly jumping to form */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={scrollToForm}
+                    type="button"
+                    className="flex-1 py-4 px-6 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-lg rounded-2xl shadow-xl shadow-emerald-700/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>👉 এখনই অর্ডার করুন (ক্যাশ অন ডেলিভারি)</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+
+                  <a
+                    href={`tel:${customerHelpline}`}
+                    className="px-5 py-4 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 border border-stone-300"
+                  >
+                    <PhoneCall className="w-4 h-4 text-emerald-700" />
+                    <span>কল করুন</span>
+                  </a>
+                </div>
+
+                {/* Micro guarantees */}
+                <div className="grid grid-cols-2 gap-3 pt-2 text-xs text-stone-600 border-t border-stone-100">
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>সারা দেশে ক্যাশ অন ডেলিভারি</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>পছন্দ না হলে সাথে সাথে রিটার্ন</span>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </section>
+
+          {/* 5. WHY OUR PRODUCT IS 100% PURE & AUTHENTIC */}
+          <section className="space-y-8 text-center">
+            <div className="max-w-2xl mx-auto space-y-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-800 bg-emerald-100/70 px-3.5 py-1 rounded-full">
+                কেন আল-বারাকাহ প্রিমিয়াম সেরা?
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900">
+                আমাদের খাঁটি সরিষার তেলের বিশেষ বৈশিষ্ট্য
+              </h2>
+              <p className="text-stone-600 text-sm sm:text-base">
+                আমরা কোনো প্রকার ক্ষতিকর প্রিজারভেটিভ বা কেমিক্যাল ছাড়া সনাতন কাঠের ঘানিতে তেল প্রস্তুত করি।
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              
+              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-sm text-left space-y-3 hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xl">
+                  🪵
+                </div>
+                <h3 className="font-bold text-stone-900 text-lg">কাঠের ঘানিতে কোল্ড-প্রেসড</h3>
+                <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
+                  ধীরগতির কাঠের ঘানিতে ভাঙানোর কারণে তেলের তাপমাত্রা বাড়ে না, ফলে প্রাকৃতিক পুষ্টি ও ভিটামিন অক্ষুণ্ণ থাকে।
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-sm text-left space-y-3 hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xl">
+                  🌿
+                </div>
+                <h3 className="font-bold text-stone-900 text-lg">১০০% কেমিক্যাল মুক্ত</h3>
+                <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
+                  কোনো প্রকার কৃত্রিম ঝাঁঝ বাড়ানো এসেন্স, কেমিক্যাল বা ক্ষতিকর পাম অয়েলের সংমিশ্রণ নেই।
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-sm text-left space-y-3 hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-red-100 text-red-800 flex items-center justify-center font-bold text-xl">
+                  👃
+                </div>
+                <h3 className="font-bold text-stone-900 text-lg">তীব্র ঝাঁঝ ও আসল ঘ্রাণ</h3>
+                <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
+                  দেশি বাছাইকৃত মাঘী সরিষার বীজ থেকে তৈরি হওয়ায় পাবেন খাঁটি ঐতিহ্যবাহী ঝাঁঝালো অনুভূতি ও মন মাতানো সুবাস।
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-sm text-left space-y-3 hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xl">
+                  🛡️
+                </div>
+                <h3 className="font-bold text-stone-900 text-lg">চেক করে মূল্য পরিশোধ</h3>
+                <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
+                  ডেলিভারি ম্যানের সামনে বোতল খুলে ঘ্রাণ ও মান যাচাই করে সন্তুষ্ট হয়ে তারপর ক্যাশ পেমেন্ট করবেন।
+                </p>
+              </div>
+
+            </div>
+          </section>
+
+          {/* 6. KEY BENEFITS BULLETS */}
+          <section className="bg-gradient-to-br from-emerald-900 via-stone-900 to-teal-950 text-white rounded-3xl p-6 sm:p-10 lg:p-12 shadow-2xl space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-7 space-y-6">
+                <span className="text-xs font-bold uppercase tracking-widest text-emerald-300 bg-emerald-800/60 px-3.5 py-1 rounded-full border border-emerald-500/30">
+                  স্বাস্থ্য উপকারিতা ও খাঁটি নিশ্চয়তা
+                </span>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-snug">
+                  প্রতিদিনের রান্নায় খাঁটি সরিষার তেলের অবিশ্বাস্য উপকারিতা
+                </h2>
+                <ul className="space-y-3.5 text-stone-200 text-sm sm:text-base">
+                  {keyBenefits.map((benefit, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-400/40">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                      <span>{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="lg:col-span-5 bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/15 text-center space-y-4">
+                <Award className="w-12 h-12 text-amber-400 mx-auto" />
+                <h3 className="text-xl font-bold text-white">১০০% গ্রাহক সন্তুষ্টি গ্যারান্টি</h3>
+                <p className="text-stone-300 text-xs sm:text-sm leading-relaxed">
+                  আল-বারাকাহ প্রিমিয়ামের প্রতিটি বোতল অত্যন্ত যত্ন ও স্বাস্থ্যসম্মত পরিবেশে প্যাক করা হয়। আপনার সন্তুষ্টিই আমাদের প্রথম অগ্রাধিকার।
+                </p>
+                <button
+                  onClick={scrollToForm}
+                  type="button"
+                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-xl transition-all shadow-lg text-sm sm:text-base cursor-pointer"
+                >
+                  এখনই অর্ডার করুন
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* 7. AUTHENTICITY & MONEY BACK GUARANTEE */}
+          <section className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-6 sm:p-8 text-stone-900 space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-stone-950 flex items-center justify-center shrink-0 shadow-md">
+                <ShieldCheck className="w-7 h-7" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-xl sm:text-2xl font-extrabold text-amber-950">
+                  {lpConfig.guaranteeTitle || 'আমাদের ১০০% খাঁটি মান ও ওপেন বক্স রিটার্ন গ্যারান্টি'}
+                </h3>
+                <p className="text-stone-700 text-sm sm:text-base leading-relaxed">
+                  {lpConfig.guaranteeText || 'ডেলিভারি ম্যান থাকা অবস্থায় বোতলের মুখ সামান্য খুলে তেলের ঝাঁঝ, ঘনত্ব ও সুবাস নিজে পরীক্ষা করুন। বিন্দুমাত্র অপছন্দ হলে সাথে সাথে কোনো চার্জ ছাড়াই ডেলিভারি ম্যানের হাতে ফেরত দেওয়ার সুযোগ রয়েছে।'}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* 8. DIRECT 1-CLICK CASH ON DELIVERY ORDER FORM */}
+          <section ref={formRef} id="order-form-section" className="scroll-mt-24">
+            <div className="bg-white rounded-3xl border-2 border-emerald-600 shadow-2xl overflow-hidden">
+              
+              {/* Form Top Title */}
+              <div className="bg-gradient-to-r from-emerald-800 to-teal-800 text-white p-6 sm:p-8 text-center space-y-2">
+                <span className="text-xs font-bold uppercase tracking-widest text-amber-300 bg-black/30 px-3 py-1 rounded-full">
+                  ক্যাশ অন ডেলিভারি (হাতে পেয়ে টাকা দিন)
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black">
+                  অর্ডার করতে নিচের ফর্মটি পূরণ করুন
+                </h2>
+                <p className="text-emerald-100 text-xs sm:text-sm max-w-md mx-auto">
+                  আপনার নাম, মোবাইল নম্বর ও পূর্ণ ঠিকানা লিখে "অর্ডার কনফার্ম করুন" বাটনে ক্লিক করুন।
+                </p>
+              </div>
+
+              {/* Form Content */}
+              <form onSubmit={handleSubmitOrder} className="p-6 sm:p-10 space-y-6">
+                
+                {/* Validation error display */}
+                {validationError && (
+                  <div className="p-4 rounded-xl bg-red-50 border border-red-300 text-red-700 text-sm font-semibold flex items-center gap-2">
+                    <X className="w-5 h-5 shrink-0" />
+                    <span>{validationError}</span>
+                  </div>
+                )}
+
+                {/* 1. Package Size Selector */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-stone-800">
+                    ১. প্যাকেজ ও সাইজ সিলেক্ট করুন: <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {defaultVariants.map((variant) => {
+                      const isSelected = selectedVariant.id === variant.id;
+                      return (
+                        <label
+                          key={variant.id}
+                          className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-sm'
+                              : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="selected_package"
+                              checked={isSelected}
+                              onChange={() => setSelectedVariant(variant)}
+                              className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <div>
+                              <div className="font-bold text-sm">{variant.label}</div>
+                              {variant.freeDelivery && (
+                                <div className="text-[11px] text-emerald-700 font-semibold">ফ্রি ডেলিভারি</div>
+                              )}
+                            </div>
+                          </div>
+                          <span className="font-mono font-bold text-base text-emerald-800">
+                            ৳{variant.price}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Customer Full Name */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-bold text-stone-800">
+                    ২. আপনার পুরো নাম: <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="যেমন: মোঃ তানভীর হাসান"
+                    className="w-full px-4 py-3.5 rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-stone-900 text-base outline-hidden transition-all bg-white"
+                  />
+                </div>
+
+                {/* 3. Customer Mobile Number */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-bold text-stone-800">
+                    ৩. মোবাইল নম্বর: <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="যেমন: 017xxxxxxxx"
+                    className="w-full px-4 py-3.5 rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-stone-900 text-base font-mono outline-hidden transition-all bg-white"
+                  />
+                  <span className="text-xs text-stone-500 block">
+                    অর্ডার কনফার্মেশনের জন্য সচল মোবাইল নম্বর দিন।
+                  </span>
+                </div>
+
+                {/* 4. Full Delivery Address */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-bold text-stone-800">
+                    ৪. সম্পূর্ণ ঠিকানা (বাসার নম্বর, রোড, থানা, জেলা): <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    placeholder="যেমন: বাসা নং ১২, রোড নং ৫, ব্লক সি, মিরপুর ১০, ঢাকা"
+                    className="w-full px-4 py-3 rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-stone-900 text-sm outline-hidden transition-all bg-white"
+                  />
+                </div>
+
+                {/* 5. Delivery Location (Inside vs Outside Dhaka) */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-stone-800">
+                    ৫. আপনার ডেলিভারি এলাকা সিলেক্ট করুন:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label
+                      className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
+                        deliveryLocation === 'inside_dhaka'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold'
+                          : 'border-stone-200 bg-stone-50 text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="delivery_loc"
+                          checked={deliveryLocation === 'inside_dhaka'}
+                          onChange={() => setDeliveryLocation('inside_dhaka')}
+                          className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span>ঢাকার ভেতরে (Inside Dhaka)</span>
+                      </div>
+                      <span className="font-mono text-sm">
+                        {isFreeDeliveryApplicable ? 'ফ্রি' : `৳${deliveryConfig.insideDhakaCharge}`}
+                      </span>
+                    </label>
+
+                    <label
+                      className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
+                        deliveryLocation === 'outside_dhaka'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold'
+                          : 'border-stone-200 bg-stone-50 text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="delivery_loc"
+                          checked={deliveryLocation === 'outside_dhaka'}
+                          onChange={() => setDeliveryLocation('outside_dhaka')}
+                          className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span>ঢাকার বাইরে (Outside Dhaka)</span>
+                      </div>
+                      <span className="font-mono text-sm">
+                        {isFreeDeliveryApplicable ? 'ফ্রি' : `৳${deliveryConfig.outsideDhakaCharge}`}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 6. Quantity Selector */}
+                <div className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200">
+                  <span className="text-sm font-bold text-stone-800">প্যাকেজ সংখ্যা (পরিমাণ):</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-8 h-8 rounded-lg bg-white border border-stone-300 font-bold text-stone-700 hover:bg-stone-100 flex items-center justify-center cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="font-mono font-bold text-base w-6 text-center">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-8 h-8 rounded-lg bg-white border border-stone-300 font-bold text-stone-700 hover:bg-stone-100 flex items-center justify-center cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* 7. Live Order Summary Breakdown */}
+                <div className="bg-stone-50 p-5 rounded-2xl border border-stone-200 space-y-2 text-sm">
+                  <div className="flex justify-between text-stone-600">
+                    <span>পণ্যের মূল্য ({selectedVariant.label} x {quantity}):</span>
+                    <span className="font-mono font-bold text-stone-800">৳{subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-stone-600">
+                    <span>ডেলিভারি চার্জ:</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {deliveryFee === 0 ? 'ফ্রি (FREE)' : `৳${deliveryFee}`}
+                    </span>
+                  </div>
+                  <div className="border-t border-stone-300 pt-2 flex justify-between text-base sm:text-lg font-black text-stone-900">
+                    <span>সর্বমোট বিল (ক্যাশ অন ডেলিভারি):</span>
+                    <span className="text-emerald-700 font-mono text-xl">৳{grandTotal.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* 8. Big Green Pulse Order Button */}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-4 sm:py-5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg sm:text-xl rounded-2xl shadow-xl shadow-emerald-700/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>অর্ডার প্রসেস হচ্ছে...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-6 h-6 text-emerald-200" />
+                      <span>✅ অর্ডার কনফার্ম করুন (৳{grandTotal.toLocaleString()})</span>
+                    </>
+                  )}
+                </button>
+
+                <p className="text-center text-xs text-stone-500 flex items-center justify-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>কোনো অগ্রিম পেমেন্টের প্রয়োজন নেই, পণ্য হাতে পেয়ে মূল্য পরিশোধ করবেন।</span>
+                </p>
+
+              </form>
+            </div>
+          </section>
+
+          {/* 9. FREQUENTLY ASKED QUESTIONS (FAQ) */}
+          <section className="bg-white rounded-3xl border border-stone-200 p-6 sm:p-10 space-y-6">
+            <div className="text-center max-w-xl mx-auto space-y-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full">
+                সাধারণ প্রশ্নোত্তর
+              </span>
+              <h2 className="text-2xl font-extrabold text-stone-900">
+                গ্রাহকদের সচরাচর করা কিছু প্রশ্ন
+              </h2>
+            </div>
+
+            <div className="divide-y divide-stone-200 max-w-3xl mx-auto">
+              {faqs.map((faq, idx) => (
+                <div key={idx} className="py-4 space-y-1.5 text-left">
+                  <h3 className="font-bold text-stone-900 text-base flex items-start gap-2">
+                    <span className="text-emerald-700 font-mono">Q.</span>
+                    <span>{faq.question}</span>
+                  </h3>
+                  <p className="text-stone-600 text-sm leading-relaxed pl-5">
+                    {faq.answer}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+        </main>
+      )}
+
+      {/* 10. STICKY MOBILE BOTTOM BAR */}
+      <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-stone-200 p-3 sm:hidden z-40 shadow-2xl flex items-center justify-between gap-3">
+        <div className="leading-tight">
+          <span className="text-[11px] text-stone-500 block">মোট মূল্য (ক্যাশ অন ডেলিভারি):</span>
+          <span className="text-lg font-black text-emerald-700 font-mono">
+            ৳{grandTotal.toLocaleString()}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <a
+            href={`tel:${customerHelpline}`}
+            className="p-3 bg-stone-100 text-stone-800 rounded-xl border border-stone-300 flex items-center justify-center"
+            aria-label="Call helpline"
+          >
+            <PhoneCall className="w-5 h-5 text-emerald-700" />
+          </a>
+
+          <button
+            onClick={scrollToForm}
+            type="button"
+            className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>অর্ডার করুন</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+    </div>
+  );
+};

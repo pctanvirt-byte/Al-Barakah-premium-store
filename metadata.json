@@ -1,0 +1,6 @@
+{
+  "name": "Al Barakah Premium",
+  "description": "An elegant, premium eCommerce platform for Al Barakah Premium in Bangladesh, featuring luxury Islamic branding, premium attars, sunglasses, and custom shopping, admin, and payment systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
