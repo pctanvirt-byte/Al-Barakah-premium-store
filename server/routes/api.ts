@@ -247,6 +247,22 @@ apiRouter.get('/products', async (req, res) => {
     filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
+  // Optional pagination query parameters support (?page=1&limit=24)
+  const pageParam = req.query.page ? parseInt(String(req.query.page), 10) : null;
+  const limitParam = req.query.limit ? parseInt(String(req.query.limit), 10) : null;
+
+  if (pageParam && limitParam && pageParam > 0 && limitParam > 0) {
+    const startIndex = (pageParam - 1) * limitParam;
+    const paginatedItems = filtered.slice(startIndex, startIndex + limitParam);
+    return res.json({
+      items: paginatedItems,
+      total: filtered.length,
+      page: pageParam,
+      limit: limitParam,
+      totalPages: Math.ceil(filtered.length / limitParam),
+    });
+  }
+
   res.json(filtered);
 });
 
@@ -436,8 +452,12 @@ apiRouter.post('/orders', optionalAuth, async (req: AuthRequest, res) => {
       }
     }
 
-    const freeShippingThreshold = 25;
-    const deliveryFee = calculatedSubtotal >= freeShippingThreshold ? 0 : (currency === 'BDT' ? 60 : 1.00);
+    // Bangladesh delivery configuration & Free shipping threshold calculation
+    const freeShippingThreshold = 2000; // Free delivery for orders over ৳2000
+    const isDhaka = !cityDistrict || cityDistrict.toLowerCase().includes('dhaka') || cityDistrict.toLowerCase().includes('ঢাকা');
+    const standardDeliveryRate = isDhaka ? 80 : 160;
+    
+    const deliveryFee = calculatedSubtotal >= freeShippingThreshold ? 0 : (currency === 'BDT' ? standardDeliveryRate : 5.00);
     const totalAmount = Math.max(0, calculatedSubtotal - discountAmount + deliveryFee);
 
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');

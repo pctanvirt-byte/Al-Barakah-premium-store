@@ -168,13 +168,7 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
       return;
     }
 
-    // Emergency Master Key verification
-    if (cleanInput === 'ABPDelwar12#32R') {
-      setIsSubmittingOtp(false);
-      onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', pendingAdminRole || 'Super Admin');
-      return;
-    }
-
+    // Submit verification to backend API (keeps Master Key and OTP secret on server-side)
     try {
       const response = await fetch('/api/admin/verify-otp', {
         method: 'POST',
@@ -192,34 +186,48 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
         return;
       } else {
         setIsSubmittingOtp(false);
-        setAuthError(data.error || 'Invalid OTP Code. Please check your Gmail and try again.');
+        setAuthError(data.error || 'Invalid Verification Code. Please check your Gmail and try again.');
       }
     } catch (err) {
-      // Offline fallback verification check for Master Key only
-      if (cleanInput === 'ABPDelwar12#32R') {
-        setIsSubmittingOtp(false);
-        onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', pendingAdminRole || 'Super Admin');
-      } else {
-        setIsSubmittingOtp(false);
-        setAuthError('Invalid OTP Code. Please verify the code sent to your Gmail.');
-      }
+      setIsSubmittingOtp(false);
+      setAuthError('Connection error during verification. Please try again.');
     }
   };
 
-  // Handle Admin Passcode Access (Master verification override)
-  const handlePasscodeLogin = (e: React.FormEvent) => {
+  // Handle Admin Passcode Access (Validated securely against server)
+  const handlePasscodeLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
 
     const cleanKey = adminPasscode.trim();
+    if (!cleanKey) {
+      setAuthError('Please enter the Master Security Key.');
+      return;
+    }
 
-    // Super Admin Master Key verification (ABPDelwar12#32R)
-    if (cleanKey === 'ABPDelwar12#32R') {
-      setPendingAdminEmail('pctanvirt@gmail.com');
-      setPendingAdminRole('Super Admin');
-      onAuthenticated('pctanvirt@gmail.com', 'Super Admin');
-    } else {
-      setAuthError('Invalid Master Security Key. Please use authorized login or correct security key.');
+    setIsVerifying(true);
+    try {
+      const response = await fetch('/api/admin/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'pctanvirt@gmail.com',
+          code: cleanKey,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setPendingAdminEmail('pctanvirt@gmail.com');
+        setPendingAdminRole('Super Admin');
+        onAuthenticated('pctanvirt@gmail.com', 'Super Admin');
+      } else {
+        setAuthError(data.error || 'Invalid Master Security Key. Access Denied.');
+      }
+    } catch (err) {
+      setAuthError('Server connection error. Please try again.');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
