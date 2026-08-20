@@ -86,7 +86,7 @@ export async function sendAdminOtpEmail({ toEmail, otpCode, adminName = 'Super A
   if (smtpUser.endsWith('@gmai')) {
     smtpUser += 'l.com';
   }
-  const smtpPass = (process.env.SMTP_PASS || 'glufpixdbwgwogxd').replace(/\s+/g, '').trim();
+  const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '').trim();
 
   let smtpHost = rawHost;
   if (!smtpHost || !smtpHost.includes('.')) {

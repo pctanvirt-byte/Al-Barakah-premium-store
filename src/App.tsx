@@ -116,18 +116,6 @@ export const INITIAL_REVIEWS: ProductReview[] = [
     approved: true
   },
   {
-    id: 'rev-3',
-    productId: 'prod-combo-2',
-    productName: 'Royal Heritage Combo',
-    customerName: 'আব্দুর রহিম',
-    rating: 5,
-    comment: 'ঘড়িটি দেখতে অনেক গর্জিয়াস এবং ব্ল্যাক মাস্ক আতরের সুবাস চমৎকার প্রশান্তিদায়ক। নামাজে পড়ার জন্য পারফেক্ট।',
-    createdAt: '2026-08-14',
-    verifiedPurchase: true,
-    city: 'সিলেট',
-    approved: true
-  },
-  {
     id: 'rev-4',
     productId: 'prod-attar-1',
     productName: 'Royal Cambodi Aged Oudh Oil',
@@ -155,66 +143,10 @@ const DEFAULT_FILTERS: FilterState = {
 export default function App() {
   const { user, profile, isAdmin, openAuthModal, signOut } = useAuth();
   
-  // --- Persistent States ---
-  const [categories, setCategories] = useState<CategoryItem[]>(() => {
-    const saved = localStorage.getItem('albarakah_premium_categories_v3') || localStorage.getItem('albarakah_premium_categories');
-    if (saved) {
-      try {
-        const parsed: CategoryItem[] = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const list: CategoryItem[] = parsed.map((item, idx) => {
-            let img = item.image;
-            if (img && img.startsWith('data:image/') && img.length > 70000) {
-              const initMatch = INITIAL_CATEGORIES.find((c) => c.id === item.id || c.slug === item.slug);
-              img = initMatch?.image || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&auto=format&fit=crop&q=80';
-            }
-            return {
-              ...item,
-              image: img || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&auto=format&fit=crop&q=80',
-              enabled: item.enabled ?? true,
-              order: typeof item.order === 'number' ? item.order : idx,
-            };
-          });
-
-          // Sort by order index
-          list.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-          return list;
-        }
-      } catch (e) {
-        console.error('Failed to parse local categories', e);
-      }
-    }
-    return INITIAL_CATEGORIES;
-  });
-
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('albarakah_premium_products');
-    if (saved) {
-      try {
-        const parsed: Product[] = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const merged: Product[] = [];
-          parsed.forEach((p) => {
-            let img = p.image;
-            if (img && img.startsWith('data:image/') && img.length > 70000) {
-              const initP = INITIAL_PRODUCTS.find((ip) => ip.id === p.id);
-              img = initP?.image || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80';
-            }
-            let imgs = p.images;
-            if (Array.isArray(imgs) && imgs.some((i) => i && i.startsWith('data:image/') && i.length > 70000)) {
-              const initP = INITIAL_PRODUCTS.find((ip) => ip.id === p.id);
-              imgs = initP?.images || [img];
-            }
-            merged.push({ ...p, image: img, images: imgs });
-          });
-          return merged;
-        }
-      } catch (e) {
-        console.error('Failed to parse local products', e);
-      }
-    }
-    return INITIAL_PRODUCTS;
-  });
+  // --- Persistent & Real-Time Cloud Synced States ---
+  const [categories, setCategories] = useState<CategoryItem[]>(INITIAL_CATEGORIES);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem('albarakah_premium_cart');
@@ -252,42 +184,11 @@ export default function App() {
     return [];
   });
 
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('albarakah_premium_orders');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse orders', e);
-      }
-    }
-    return [];
-  });
-
   const [currency, setCurrency] = useState<'USD' | 'BDT'>('BDT');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
   // --- Admin & Staff Access State ---
-  const [staffList, setStaffList] = useState<StaffMember[]>(() => {
-    const saved = localStorage.getItem('albarakah_premium_staff_list');
-    if (saved) {
-      try {
-        const parsed: StaffMember[] = JSON.parse(saved);
-        // Ensure all initial super admins exist
-        const merged = [...parsed];
-        INITIAL_STAFF_LIST.forEach((initStaff) => {
-          const exists = merged.some((m) => m.email.toLowerCase() === initStaff.email.toLowerCase());
-          if (!exists) {
-            merged.unshift(initStaff);
-          }
-        });
-        return merged;
-      } catch (e) {
-        console.error('Failed to parse staff list', e);
-      }
-    }
-    return INITIAL_STAFF_LIST;
-  });
+  const [staffList, setStaffList] = useState<StaffMember[]>(INITIAL_STAFF_LIST);
 
   const [isAdminView, setIsAdminView] = useState<boolean>(() => {
     // Check if URL hash is #admin or query param is ?admin
@@ -315,116 +216,23 @@ export default function App() {
   );
   const isEffectiveAdmin = Boolean(adminAuth || isAdmin || isSuperAdminUser || profile?.role === 'admin' || profile?.role === 'super_admin');
 
-  // --- Hero Banner Configuration (Ghorer Bazar Layout + Admin Control) ---
-  const [heroBannerConfig, setHeroBannerConfig] = useState<HeroBannerConfig>(() => {
-    const saved = localStorage.getItem('albarakah_premium_hero_banners');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // If old sample with broken/popcorn URL is stored, replace with fresh clean config
-        if (parsed?.slides?.[0]?.image?.includes('photo-1578849278619-e73505e9610f') || !parsed?.slides?.length) {
-          return DEFAULT_HERO_CONFIG;
-        }
-        return parsed;
-      } catch (e) {
-        console.error('Failed to parse hero banners', e);
-      }
-    }
-    return DEFAULT_HERO_CONFIG;
-  });
+  // --- Hero Banner Configuration (Firestore Synced) ---
+  const [heroBannerConfig, setHeroBannerConfig] = useState<HeroBannerConfig>(DEFAULT_HERO_CONFIG);
 
-  // --- Top Selling Products Configuration (Ghorer Bazar Layout + Admin Control) ---
-  const [topSellingConfig, setTopSellingConfig] = useState<TopSellingSectionConfig>(() => {
-    const saved = localStorage.getItem('albarakah_premium_top_selling');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_TOP_SELLING_CONFIG,
-          ...parsed,
-          subtitle: '',
-          items: parsed.items && parsed.items.length > 0 ? parsed.items : DEFAULT_TOP_SELLING_CONFIG.items,
-        };
-      } catch (e) {
-        console.error('Failed to parse top selling config', e);
-      }
-    }
-    return DEFAULT_TOP_SELLING_CONFIG;
-  });
+  // --- Top Selling Products Configuration (Firestore Synced) ---
+  const [topSellingConfig, setTopSellingConfig] = useState<TopSellingSectionConfig>(DEFAULT_TOP_SELLING_CONFIG);
 
-  // --- Courier Configuration State (Steadfast & Pathao One-Click Dispatch) ---
-  const [courierConfig, setCourierConfig] = useState<CourierConfig>(() => {
-    const saved = localStorage.getItem('albarakah_premium_courier_config');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_COURIER_CONFIG,
-          ...parsed,
-          steadfast: { ...DEFAULT_COURIER_CONFIG.steadfast, ...(parsed.steadfast || {}) },
-          pathao: { ...DEFAULT_COURIER_CONFIG.pathao, ...(parsed.pathao || {}) },
-        };
-      } catch (e) {
-        console.error('Failed to parse courier config', e);
-      }
-    }
-    return DEFAULT_COURIER_CONFIG;
-  });
+  // --- Courier Configuration State (Steadfast & Pathao - Firestore Synced) ---
+  const [courierConfig, setCourierConfig] = useState<CourierConfig>(DEFAULT_COURIER_CONFIG);
 
-  // --- Dynamic Delivery Charge Configuration (Customizable via Admin Dashboard) ---
-  const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig>(() => {
-    const saved = localStorage.getItem('albarakah_premium_delivery_config');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_DELIVERY_CONFIG,
-          ...parsed,
-        };
-      } catch (e) {
-        console.error('Failed to parse delivery config', e);
-      }
-    }
-    return DEFAULT_DELIVERY_CONFIG;
-  });
+  // --- Dynamic Delivery Charge Configuration (Firestore Synced) ---
+  const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig>(DEFAULT_DELIVERY_CONFIG);
 
   // --- Facebook Pixel, CAPI & Domain Verification Config (Firestore Synced) ---
-  const [facebookPixelConfig, setFacebookPixelConfig] = useState<FacebookPixelConfig>(() => {
-    const saved = localStorage.getItem('albarakah_fb_pixel_config');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_FACEBOOK_PIXEL_CONFIG,
-          ...parsed,
-        };
-      } catch (e) {
-        console.error('Failed to parse fb pixel config', e);
-      }
-    }
-    return DEFAULT_FACEBOOK_PIXEL_CONFIG;
-  });
+  const [facebookPixelConfig, setFacebookPixelConfig] = useState<FacebookPixelConfig>(DEFAULT_FACEBOOK_PIXEL_CONFIG);
 
-  // --- bKash Payment & PGW API Gateway Configuration ---
-  const [bkashConfig, setBkashConfig] = useState<BKashPaymentConfig>(() => {
-    const saved = localStorage.getItem('albarakah_premium_bkash_config');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_BKASH_CONFIG,
-          ...parsed,
-          gateway: {
-            ...DEFAULT_BKASH_CONFIG.gateway,
-            ...(parsed.gateway || {}),
-          },
-        };
-      } catch (e) {
-        console.error('Failed to parse bkash config', e);
-      }
-    }
-    return DEFAULT_BKASH_CONFIG;
-  });
+  // --- bKash Payment & PGW API Gateway Configuration (Firestore Synced) ---
+  const [bkashConfig, setBkashConfig] = useState<BKashPaymentConfig>(DEFAULT_BKASH_CONFIG);
 
   // Initialize Facebook Pixel and Domain Verification whenever config changes
   useEffect(() => {
@@ -465,6 +273,30 @@ export default function App() {
 
   // --- Real-Time Firestore Synchronization Lifecycle ---
   useEffect(() => {
+    // Clean up any stale or insecure business data stored in browser localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const legacyKeys = [
+          'albarakah_premium_products',
+          'albarakah_premium_categories',
+          'albarakah_premium_categories_v3',
+          'albarakah_premium_orders',
+          'albarakah_premium_reviews',
+          'albarakah_premium_staff_list',
+          'albarakah_premium_hero_banners',
+          'albarakah_premium_top_selling',
+          'albarakah_premium_courier_config',
+          'albarakah_premium_bkash_config',
+          'albarakah_premium_delivery_config',
+          'albarakah_fb_pixel_config',
+          'albarakah_enable_customer_reviews',
+        ];
+        legacyKeys.forEach((key) => localStorage.removeItem(key));
+      } catch (e) {
+        // Storage cleanup error ignore
+      }
+    }
+
     // Seed default initial data if Firestore collections are empty
     seedInitialProductsIfEmpty(INITIAL_PRODUCTS);
     seedInitialCategoriesIfEmpty(INITIAL_CATEGORIES);
@@ -528,7 +360,6 @@ export default function App() {
           ...prev,
           ...settings.facebookPixelConfig,
         }));
-        localStorage.setItem('albarakah_fb_pixel_config', JSON.stringify(settings.facebookPixelConfig));
       }
       if (settings.bkashConfig && typeof settings.bkashConfig === 'object') {
         setBkashConfig((prev) => ({
@@ -536,7 +367,6 @@ export default function App() {
           ...settings.bkashConfig,
           gateway: { ...prev.gateway, ...(settings.bkashConfig?.gateway || {}) },
         }));
-        localStorage.setItem('albarakah_premium_bkash_config', JSON.stringify(settings.bkashConfig));
       }
     });
 
@@ -551,7 +381,6 @@ export default function App() {
 
   const handleUpdateFacebookPixelConfig = async (newPixelCfg: FacebookPixelConfig) => {
     setFacebookPixelConfig(newPixelCfg);
-    localStorage.setItem('albarakah_fb_pixel_config', JSON.stringify(newPixelCfg));
     await saveStoreSettingsToDb({ facebookPixelConfig: newPixelCfg });
     initFacebookPixel(newPixelCfg);
     showToast('Facebook Pixel ও ডোমেইন ভেরিফিকেশন সফলভাবে সেভ হয়েছে!');
@@ -559,7 +388,6 @@ export default function App() {
 
   const handleUpdateBkashConfig = async (newBkashCfg: BKashPaymentConfig) => {
     setBkashConfig(newBkashCfg);
-    localStorage.setItem('albarakah_premium_bkash_config', JSON.stringify(newBkashCfg));
     await saveStoreSettingsToDb({ bkashConfig: newBkashCfg });
     showToast('বিকাশ পেমেন্ট গেটওয়ে ও পার্সোনাল সেটিংস সফলভাবে সেভ করা হয়েছে!');
   };
@@ -584,8 +412,6 @@ export default function App() {
       order: idx,
     }));
     setCategories(sequenced);
-    localStorage.setItem('albarakah_premium_categories', JSON.stringify(sequenced));
-    localStorage.setItem('albarakah_premium_categories_v3', JSON.stringify(sequenced));
     if (Array.isArray(sequenced)) {
       for (const c of sequenced) {
         await saveCategoryToDb(c);
@@ -627,23 +453,7 @@ export default function App() {
     showToast('রিভিউ ডাটাবেজ থেকে মুছে ফেলা হয়েছে');
   };
 
-  // Sync state to local storage
-  useEffect(() => {
-    localStorage.setItem('albarakah_premium_categories', JSON.stringify(categories));
-  }, [categories]);
-
-  useEffect(() => {
-    localStorage.setItem('albarakah_premium_products', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem('albarakah_premium_reviews', JSON.stringify(reviews));
-  }, [reviews]);
-
-  useEffect(() => {
-    localStorage.setItem('albarakah_enable_customer_reviews', String(enableCustomerReviews));
-  }, [enableCustomerReviews]);
-
+  // Sync client-only state to local storage (Cart, Wishlist, Compare)
   useEffect(() => {
     localStorage.setItem('albarakah_premium_cart', JSON.stringify(cart));
   }, [cart]);
@@ -655,22 +465,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('albarakah_premium_compare', JSON.stringify(compareProducts));
   }, [compareProducts]);
-
-  useEffect(() => {
-    localStorage.setItem('albarakah_premium_orders', JSON.stringify(orders));
-  }, [orders]);
-
-  useEffect(() => {
-    localStorage.setItem('albarakah_premium_staff_list', JSON.stringify(staffList));
-  }, [staffList]);
-
-  useEffect(() => {
-    localStorage.setItem('albarakah_premium_hero_banners', JSON.stringify(heroBannerConfig));
-  }, [heroBannerConfig]);
-
-  useEffect(() => {
-    localStorage.setItem('albarakah_premium_delivery_config', JSON.stringify(deliveryConfig));
-  }, [deliveryConfig]);
 
   // Listen to #admin hash or secret URL changes
   useEffect(() => {
@@ -1086,10 +880,6 @@ export default function App() {
   const handleOrderPlaced = async (newOrder: Order) => {
     // Immediately update local orders state so it appears in Admin Dashboard instantly
     setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
-    localStorage.setItem(
-      'albarakah_premium_orders',
-      JSON.stringify([newOrder, ...orders.filter((o) => o.id !== newOrder.id)])
-    );
 
     // Save to Firestore DB
     await saveOrderToDb(newOrder);

@@ -28,19 +28,17 @@ export const requireAuth = async (
 
   const token = authHeader.split('Bearer ')[1];
   
-  // Support custom session tokens (e.g. session:email:name)
+  // Support custom session tokens (e.g. session:email:name) - Strictly for customer access only
   if (token.startsWith('session:')) {
     const parts = token.split(':');
     const email = parts[1] || 'customer@albarakah.store';
     const name = parts[2] ? decodeURIComponent(parts[2]) : email.split('@')[0];
-    const emailLower = email.toLowerCase();
-    const isSuperAdminEmail = emailLower === 'albarakahpremium10@gmail.com' || emailLower === 'pctanvirt@gmail.com';
 
     req.dbUser = {
       id: `usr_${Math.abs(email.split('').reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0))}`,
       email,
       name,
-      role: isSuperAdminEmail ? 'super_admin' : 'customer',
+      role: 'customer', // SECURITY: session: tokens CANNOT claim admin privilege
       isActive: true,
     };
 
@@ -48,13 +46,13 @@ export const requireAuth = async (
       try {
         const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
         if (existing.length > 0) {
-          req.dbUser = existing[0];
+          req.dbUser = { ...existing[0], role: 'customer' }; // Cannot elevate via custom string
         } else {
           const [newUser] = await db.insert(users).values({
             googleId: `session_${Date.now()}`,
             email,
             name,
-            role: isSuperAdminEmail ? 'super_admin' : 'customer',
+            role: 'customer',
             isActive: true,
           }).returning();
           req.dbUser = newUser;
@@ -131,14 +129,12 @@ export const optionalAuth = async (
       const parts = token.split(':');
       const email = parts[1] || 'customer@albarakah.store';
       const name = parts[2] ? decodeURIComponent(parts[2]) : email.split('@')[0];
-      const emailLower = email.toLowerCase();
-      const isSuperAdminEmail = emailLower === 'albarakahpremium10@gmail.com' || emailLower === 'pctanvirt@gmail.com';
 
       req.dbUser = {
         id: `usr_${Math.abs(email.split('').reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0))}`,
         email,
         name,
-        role: isSuperAdminEmail ? 'super_admin' : 'customer',
+        role: 'customer',
         isActive: true,
       };
 
@@ -146,7 +142,7 @@ export const optionalAuth = async (
         try {
           const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
           if (existing.length > 0) {
-            req.dbUser = existing[0];
+            req.dbUser = { ...existing[0], role: 'customer' };
           }
         } catch (e) {
           // Optional auth fail silently

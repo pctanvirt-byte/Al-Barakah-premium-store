@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { db, isDatabaseConfigured } from '../../src/db/index.ts';
 import { products, categories, orders, orderItems, coupons, wishlistItems, users, auditLogs } from '../../src/db/schema.ts';
 import { eq, and, isNull, desc, sql } from 'drizzle-orm';
@@ -8,6 +9,31 @@ import { INITIAL_CATEGORIES } from '../../src/data/categories.ts';
 import { sendAdminOtpEmail, sendOrderNotificationEmail } from '../services/mailer.ts';
 
 export const apiRouter = express.Router();
+
+// Privacy & PII Data Masking Helpers
+function maskPhoneNumber(phone?: string | null): string {
+  if (!phone) return 'N/A';
+  const clean = phone.replace(/[^0-9]/g, '');
+  if (clean.length < 7) return '***';
+  return `${clean.slice(0, 3)}****${clean.slice(-3)}`;
+}
+
+function maskEmailAddress(email?: string | null): string {
+  if (!email || !email.includes('@')) return '***';
+  const [local, domain] = email.split('@');
+  if (local.length <= 2) return `*@${domain}`;
+  return `${local[0]}***${local.slice(-1)}@${domain}`;
+}
+
+function maskDeliveryAddress(address?: string | null, city?: string | null): string {
+  const cityStr = city || 'Dhaka';
+  if (!address) return cityStr;
+  const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    return `***, ${parts[parts.length - 1]} (${cityStr})`;
+  }
+  return `***, ${cityStr}`;
+}
 
 // ==========================================
 // In-Memory Fallback Store (Used when PostgreSQL is not configured or as resilient fallback)
@@ -461,7 +487,7 @@ apiRouter.post('/orders', optionalAuth, async (req: AuthRequest, res) => {
     const totalAmount = Math.max(0, calculatedSubtotal - discountAmount + deliveryFee);
 
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const randomSuffix = crypto.randomInt(1000, 10000);
     const trackingCode = `ABP-${dateStr}-${randomSuffix}`;
     const cleanEmail = (customerEmail && customerEmail.trim()) || `${customerPhone.replace(/[^0-9]/g, '')}@guest.albarakah.com`;
 
@@ -557,7 +583,7 @@ apiRouter.post('/orders', optionalAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// GET /api/orders/track/:code - Public tracking lookup (PostgreSQL + memory sync)
+// GET /api/orders/track/:code - Public tracking lookup (PostgreSQL + memory sync with PII masking)
 apiRouter.get('/orders/track/:code', async (req, res) => {
   const { code } = req.params;
   const cleanCode = code.trim().toLowerCase();
@@ -570,9 +596,9 @@ apiRouter.get('/orders/track/:code', async (req, res) => {
         id: dbOrder.id,
         trackingCode: dbOrder.trackingCode,
         customerName: dbOrder.customerName,
-        customerEmail: dbOrder.customerEmail,
-        customerPhone: dbOrder.customerPhone,
-        deliveryAddress: dbOrder.deliveryAddress,
+        customerEmail: maskEmailAddress(dbOrder.customerEmail),
+        customerPhone: maskPhoneNumber(dbOrder.customerPhone),
+        deliveryAddress: maskDeliveryAddress(dbOrder.deliveryAddress, dbOrder.cityDistrict),
         cityDistrict: dbOrder.cityDistrict,
         subtotalAmount: Number(dbOrder.subtotalAmount),
         discountAmount: Number(dbOrder.discountAmount),
@@ -611,7 +637,12 @@ apiRouter.get('/orders/track/:code', async (req, res) => {
     return res.status(404).json({ error: 'Order not found with this tracking code' });
   }
 
-  res.json(order);
+  res.json({
+    ...order,
+    customerEmail: maskEmailAddress(order.customerEmail),
+    customerPhone: maskPhoneNumber(order.customerPhone),
+    deliveryAddress: maskDeliveryAddress(order.deliveryAddress, order.cityDistrict),
+  });
 });
 
 // GET /api/orders/my-orders - User authenticated order history
@@ -846,6 +877,7 @@ interface OtpEntry {
 }
 
 const activeOtps = new Map<string, OtpEntry>();
+const otpRateLimiter = new Map<string, number>();
 
 const AUTHORIZED_SUPER_ADMINS = [
   'pctanvirt@gmail.com',
@@ -867,9 +899,18 @@ apiRouter.post('/admin/send-otp', async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized email address' });
     }
 
-    // Generate secure 6-digit OTP code (valid for 1 minute)
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 60 * 1000; // 1 minute validity
+    // Rate Limiting: 30 seconds cooldown
+    const lastRequest = otpRateLimiter.get(cleanEmail) || 0;
+    const now = Date.now();
+    if (now - lastRequest < 30 * 1000) {
+      const waitSeconds = Math.ceil((30 * 1000 - (now - lastRequest)) / 1000);
+      return res.status(429).json({ error: `Please wait ${waitSeconds} seconds before requesting a new OTP.` });
+    }
+    otpRateLimiter.set(cleanEmail, now);
+
+    // Generate secure 6-digit OTP code using crypto (valid for 2 minutes)
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
+    const expiresAt = Date.now() + 120 * 1000; // 2 minutes validity
 
     activeOtps.set(cleanEmail, {
       email: cleanEmail,
@@ -1215,8 +1256,8 @@ apiRouter.post('/notify-order', async (req, res) => {
   }
 });
 
-// POST /api/test-email - Test SMTP configuration & connectivity
-apiRouter.post('/test-email', async (req, res) => {
+// POST /api/test-email - Test SMTP configuration & connectivity (Protected: Admin Only)
+apiRouter.post('/test-email', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const testOrder = {
       id: `TEST-${Date.now().toString().slice(-4)}`,
