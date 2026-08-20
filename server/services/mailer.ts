@@ -24,47 +24,57 @@ async function createWorkingTransporter(smtpUser: string, smtpPass: string, smtp
 
   for (const user of uniqueUsers) {
     try {
-      const isGmail = smtpHost.includes('gmail') || user.includes('@gmail.com');
-      const transporter = nodemailer.createTransport(
-        isGmail
-          ? {
-              service: 'gmail',
-              auth: {
-                user: user,
-                pass: smtpPass,
-              },
-            }
-          : {
-              host: smtpHost,
-              port: smtpPort,
-              secure: smtpPort === 465,
-              connectionTimeout: 5000,
-              greetingTimeout: 4000,
-              socketTimeout: 6000,
-              auth: {
-                user: user,
-                pass: smtpPass,
-              },
-            }
-      );
+      // 1. First try direct secure SSL on port 465 (Universal cloud compatibility)
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: user,
+          pass: smtpPass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+        connectionTimeout: 7000,
+        greetingTimeout: 5000,
+        socketTimeout: 8000,
+      });
 
-      // Verify connection quietly
       await transporter.verify();
       return { transporter, activeSender: user };
     } catch {
-      // Try next candidate sender smoothly
+      try {
+        // 2. Secondary attempt: standard Gmail service adapter
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: user,
+            pass: smtpPass,
+          },
+        });
+        await transporter.verify();
+        return { transporter, activeSender: user };
+      } catch {
+        // Continue to next candidate email
+      }
     }
   }
 
-  // Fallback to default transporter
+  // Fallback to default transporter with Port 465 SSL
   const fallbackTransporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
-      user: 'pctanvirt@gmail.com',
+      user: normUser || 'pctanvirt@gmail.com',
       pass: smtpPass,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
-  return { transporter: fallbackTransporter, activeSender: 'pctanvirt@gmail.com' };
+  return { transporter: fallbackTransporter, activeSender: normUser || 'pctanvirt@gmail.com' };
 }
 
 export async function sendAdminOtpEmail({ toEmail, otpCode, adminName = 'Super Admin' }: SendOtpOptions) {
