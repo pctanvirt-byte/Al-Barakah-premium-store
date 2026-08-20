@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   SlidersHorizontal, 
   ArrowUpDown, 
@@ -697,6 +697,148 @@ export default function App() {
       localStorage.removeItem('albarakah_admin_session');
     }
   }, [adminAuth]);
+
+  // --- Mobile & Browser Back-Button History Controller ---
+  const isPoppingStateRef = useRef(false);
+  const lastStateKeyRef = useRef('');
+
+  // 1. Initialize base state on first load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (!window.history.state) {
+        window.history.replaceState({ activePageView: 'CATALOG', category: 'All' }, '');
+        lastStateKeyRef.current = JSON.stringify({ activePageView: 'CATALOG', category: 'All' });
+      }
+    }
+  }, []);
+
+  // 2. Listen to PopState (Mobile back button or browser back gesture)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handlePopState = (event: PopStateEvent) => {
+      isPoppingStateRef.current = true;
+      const state = event.state;
+
+      if (!state) {
+        // Revert to pure Home / Catalog
+        setActivePageView('CATALOG');
+        setSelectedProduct(null);
+        setLandingProduct(null);
+        setIsCheckoutOpen(false);
+        setIsCustomerDashboardOpen(false);
+        setIsCompareModalOpen(false);
+        setIsPolicyOpen(false);
+        setIsAdminCategoryOpen(false);
+        setIsBannerAdminOpen(false);
+        setIsAdminView(false);
+        setFilters((prev) => ({ ...prev, category: 'All' }));
+        lastStateKeyRef.current = JSON.stringify({ activePageView: 'CATALOG', category: 'All' });
+      } else {
+        setActivePageView(state.activePageView || 'CATALOG');
+        if (state.selectedProductId) {
+          const p = products.find((item) => item.id === state.selectedProductId);
+          setSelectedProduct(p || null);
+        } else {
+          setSelectedProduct(null);
+        }
+
+        if (state.landingProductId) {
+          const p = products.find((item) => item.id === state.landingProductId);
+          setLandingProduct(p || null);
+        } else {
+          setLandingProduct(null);
+        }
+
+        setIsCheckoutOpen(Boolean(state.isCheckoutOpen));
+        setIsCustomerDashboardOpen(Boolean(state.isCustomerDashboardOpen));
+        setIsCompareModalOpen(Boolean(state.isCompareModalOpen));
+        setIsPolicyOpen(Boolean(state.isPolicyOpen));
+        setIsAdminCategoryOpen(Boolean(state.isAdminCategoryOpen));
+        setIsBannerAdminOpen(Boolean(state.isBannerAdminOpen));
+        setIsAdminView(Boolean(state.isAdminView));
+
+        if (state.category) {
+          setFilters((prev) => ({ ...prev, category: state.category }));
+        }
+
+        lastStateKeyRef.current = JSON.stringify({
+          activePageView: state.activePageView || 'CATALOG',
+          selectedProductId: state.selectedProductId || null,
+          landingProductId: state.landingProductId || null,
+          isCheckoutOpen: Boolean(state.isCheckoutOpen),
+          isCustomerDashboardOpen: Boolean(state.isCustomerDashboardOpen),
+          isCompareModalOpen: Boolean(state.isCompareModalOpen),
+          isPolicyOpen: Boolean(state.isPolicyOpen),
+          isAdminView: Boolean(state.isAdminView),
+          category: state.category || 'All',
+        });
+      }
+
+      setTimeout(() => {
+        isPoppingStateRef.current = false;
+      }, 150);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [products]);
+
+  // 3. Push new history entry whenever user transitions to a modal, product, or subview
+  useEffect(() => {
+    if (typeof window === 'undefined' || isPoppingStateRef.current) return;
+
+    const isSubState = Boolean(
+      activePageView !== 'CATALOG' ||
+      selectedProduct ||
+      landingProduct ||
+      isCheckoutOpen ||
+      isCustomerDashboardOpen ||
+      isCompareModalOpen ||
+      isPolicyOpen ||
+      isAdminCategoryOpen ||
+      isBannerAdminOpen ||
+      isAdminView ||
+      (filters.category && filters.category !== 'All')
+    );
+
+    const currentStateObj = {
+      activePageView,
+      selectedProductId: selectedProduct?.id || null,
+      landingProductId: landingProduct?.id || null,
+      isCheckoutOpen,
+      isCustomerDashboardOpen,
+      isCompareModalOpen,
+      isPolicyOpen,
+      isAdminCategoryOpen,
+      isBannerAdminOpen,
+      isAdminView,
+      category: filters.category,
+    };
+
+    const stateKey = JSON.stringify(currentStateObj);
+
+    if (stateKey !== lastStateKeyRef.current) {
+      if (isSubState) {
+        window.history.pushState(currentStateObj, '');
+      } else {
+        window.history.replaceState(currentStateObj, '');
+      }
+      lastStateKeyRef.current = stateKey;
+    }
+  }, [
+    activePageView,
+    selectedProduct,
+    landingProduct,
+    isCheckoutOpen,
+    isCustomerDashboardOpen,
+    isCompareModalOpen,
+    isPolicyOpen,
+    isAdminCategoryOpen,
+    isBannerAdminOpen,
+    isAdminView,
+    filters.category,
+  ]);
 
   // Handle QR Code Verification Scan & Facebook Ad Landing Page Routing (e.g. ?landing=prod-mustard-oil-5l or ?verify=...)
   useEffect(() => {
