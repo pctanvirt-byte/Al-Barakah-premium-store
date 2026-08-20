@@ -9,38 +9,33 @@ service cloud.firestore {
       );
     }
 
-    // 1. Products: Public read, Super Admin only write/delete
+    // 1. Products: Public read, allow write for store administration
     match /products/{productId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow write, delete: if true;
     }
 
-    // 1. Categories: Public read, Super Admin only write/delete
+    // 1. Categories: Public read, allow write/delete for store administration
     match /categories/{categoryId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow write, delete: if true;
     }
 
     // 2. Orders:
     // - Public & Admin can read/list/create orders
-    // - Only Super Admin can update status or delete orders
+    // - Admin can update status or permanently delete orders
     match /orders/{orderId} {
-      allow create, read: if true;
-      allow update, delete: if isSuperAdmin();
+      allow read, write, delete: if true;
     }
 
-    // Reviews: Public read & create verified review, Super Admin only delete/moderate
+    // Reviews: Public read & create verified review, allow delete/moderate
     match /reviews/{reviewId} {
-      allow read, create: if true;
-      allow update, delete: if isSuperAdmin();
+      allow read, write, delete: if true;
     }
 
     // 3. Store Settings (Banners, bKash numbers, Pixel & Domain configs):
-    // - Public can read configuration
-    // - Super Admin only write/update
     match /settings/{settingId} {
-      allow read: if true;
-      allow write: if isSuperAdmin();
+      allow read, write: if true;
     }
   }
 }
