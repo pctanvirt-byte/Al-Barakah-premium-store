@@ -21,14 +21,12 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
-    // 2. Orders & Customer Privacy Protection:
-    // - Public can place orders (create)
-    // - Public can lookup single order status by ID (get)
-    // - Only Super Admin can list all orders or update/delete orders
+    // 2. Orders:
+    // - Public & Admin can read/list/create orders
+    // - Only Super Admin can update status or delete orders
     match /orders/{orderId} {
-      allow create: if true;
-      allow get: if true;
-      allow list, update, delete: if isSuperAdmin();
+      allow create, read: if true;
+      allow update, delete: if isSuperAdmin();
     }
 
     // Reviews: Public read & create verified review, Super Admin only delete/moderate
