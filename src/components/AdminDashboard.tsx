@@ -741,6 +741,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [bannerSubTab, setBannerSubTab] = useState<'SLIDES' | 'PROMO'>('SLIDES');
   const [bannerSavedToast, setBannerSavedToast] = useState(false);
 
+  useEffect(() => {
+    if (heroBannerConfig && heroBannerConfig.slides) {
+      setBannerConfigState(heroBannerConfig);
+    }
+  }, [heroBannerConfig]);
+
   const handleSaveBanners = (newCfg: HeroBannerConfig) => {
     setBannerConfigState(newCfg);
     if (onUpdateHeroBannerConfig) {

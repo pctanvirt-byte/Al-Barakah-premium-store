@@ -286,7 +286,7 @@ export const seedInitialCategoriesIfEmpty = async (initialCategories: CategoryIt
 export const subscribeToStoreSettings = (
   callback: (settings: {
     enableCustomerReviews?: boolean;
-    heroBanners?: HeroBannerConfig[];
+    heroBanners?: HeroBannerConfig | HeroBannerConfig[] | any;
     topSelling?: TopSellingSectionConfig;
     courierConfig?: CourierConfig;
     deliveryConfig?: DeliveryConfig;
@@ -310,7 +310,7 @@ export const subscribeToStoreSettings = (
 
 export const saveStoreSettingsToDb = async (settings: {
   enableCustomerReviews?: boolean;
-  heroBanners?: HeroBannerConfig[];
+  heroBanners?: HeroBannerConfig | HeroBannerConfig[] | any;
   topSelling?: TopSellingSectionConfig;
   courierConfig?: CourierConfig;
   deliveryConfig?: DeliveryConfig;

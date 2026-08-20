@@ -335,8 +335,23 @@ export default function App() {
       if (typeof settings.enableCustomerReviews === 'boolean') {
         setEnableCustomerReviews(settings.enableCustomerReviews);
       }
-      if (settings.heroBanners && Array.isArray(settings.heroBanners)) {
-        setHeroBannerConfig(settings.heroBanners);
+      if (settings.heroBanners) {
+        if (Array.isArray(settings.heroBanners)) {
+          setHeroBannerConfig({
+            slides: settings.heroBanners,
+            promoCard: DEFAULT_HERO_CONFIG.promoCard,
+          });
+        } else if (typeof settings.heroBanners === 'object') {
+          const raw = settings.heroBanners as any;
+          if (Array.isArray(raw.slides)) {
+            setHeroBannerConfig({
+              slides: raw.slides,
+              promoCard: raw.promoCard || DEFAULT_HERO_CONFIG.promoCard,
+            });
+          } else {
+            setHeroBannerConfig(raw as HeroBannerConfig);
+          }
+        }
       }
       if (settings.topSelling && typeof settings.topSelling === 'object') {
         setTopSellingConfig(settings.topSelling);
@@ -1833,8 +1848,9 @@ export default function App() {
         isOpen={isBannerAdminOpen}
         onClose={() => setIsBannerAdminOpen(false)}
         config={heroBannerConfig}
-        onSave={(cfg) => {
+        onSaveConfig={async (cfg) => {
           setHeroBannerConfig(cfg);
+          await saveStoreSettingsToDb({ heroBanners: cfg });
           showToast('Hero & promo banners saved!');
         }}
         categories={categories}
