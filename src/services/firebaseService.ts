@@ -323,6 +323,7 @@ export const saveStoreSettingsToDb = async (settings: {
     await setDoc(docRef, cleanedSettings, { merge: true });
   } catch (err) {
     console.error('Error saving store settings to DB:', err);
+    throw err;
   }
 };
 

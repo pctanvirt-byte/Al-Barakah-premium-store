@@ -2606,7 +2606,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               referrerPolicy="no-referrer"
                               className="w-full h-full object-contain"
                             />
-                            {/* Overlay file upload button */}
+                            {/* Overlay file upload button with auto-compression */}
                             <label className="absolute inset-0 bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs font-bold">
                               <Upload className="w-5 h-5 mb-1" />
                               <span>ছবি আপলোড করুন</span>
@@ -2614,17 +2614,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 type="file"
                                 accept="image/*"
                                 className="hidden"
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (file) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                      const base64 = reader.result as string;
+                                    try {
+                                      const compressed = await compressImageFile(file, 800, 800, 0.8);
                                       const updatedItems = [...topSellingState.items];
-                                      updatedItems[idx].image = base64;
+                                      updatedItems[idx].image = compressed;
                                       setTopSellingState({ ...topSellingState, items: updatedItems });
-                                    };
-                                    reader.readAsDataURL(file);
+                                    } catch (err) {
+                                      console.error('Failed to compress image:', err);
+                                    }
                                   }
                                 }}
                               />
@@ -2650,17 +2650,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 type="file"
                                 accept="image/*"
                                 className="hidden"
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (file) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                      const base64 = reader.result as string;
+                                    try {
+                                      const compressed = await compressImageFile(file, 800, 800, 0.8);
                                       const updatedItems = [...topSellingState.items];
-                                      updatedItems[idx].image = base64;
+                                      updatedItems[idx].image = compressed;
                                       setTopSellingState({ ...topSellingState, items: updatedItems });
-                                    };
-                                    reader.readAsDataURL(file);
+                                    } catch (err) {
+                                      console.error('Failed to compress image:', err);
+                                    }
                                   }
                                 }}
                               />
@@ -2679,9 +2679,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               onChange={(e) => {
                                 const updatedItems = [...topSellingState.items];
                                 const selProd = products.find((p) => p.id === e.target.value);
-                                updatedItems[idx].productId = e.target.value;
-                                if (selProd && !updatedItems[idx].name) {
-                                  updatedItems[idx].name = selProd.name;
+                                if (selProd) {
+                                  updatedItems[idx] = {
+                                    ...updatedItems[idx],
+                                    productId: selProd.id,
+                                    name: selProd.name,
+                                    image: selProd.image,
+                                    price: selProd.price,
+                                    originalPrice: selProd.originalPrice,
+                                    overridePrice: selProd.price,
+                                    overrideOriginalPrice: selProd.originalPrice,
+                                    overrideWeight: selProd.weight || '১ কেজি',
+                                  };
+                                } else {
+                                  updatedItems[idx].productId = e.target.value;
                                 }
                                 setTopSellingState({ ...topSellingState, items: updatedItems });
                               }}
@@ -2750,11 +2761,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </label>
                             <input
                               type="number"
-                              value={item.overridePrice || ''}
+                              value={item.overridePrice !== undefined && item.overridePrice !== null ? item.overridePrice : (item.price || '')}
                               placeholder={String(linkedProduct?.price || 0)}
                               onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
                                 const updatedItems = [...topSellingState.items];
-                                updatedItems[idx].overridePrice = Number(e.target.value) || 0;
+                                updatedItems[idx].overridePrice = val;
+                                updatedItems[idx].price = val;
                                 setTopSellingState({ ...topSellingState, items: updatedItems });
                               }}
                               className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none"
@@ -2767,11 +2780,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </label>
                             <input
                               type="number"
-                              value={item.overrideOriginalPrice || ''}
+                              value={item.overrideOriginalPrice !== undefined && item.overrideOriginalPrice !== null ? item.overrideOriginalPrice : (item.originalPrice || '')}
                               placeholder={String(linkedProduct?.originalPrice || 0)}
                               onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
                                 const updatedItems = [...topSellingState.items];
-                                updatedItems[idx].overrideOriginalPrice = Number(e.target.value) || 0;
+                                updatedItems[idx].overrideOriginalPrice = val;
+                                updatedItems[idx].originalPrice = val;
                                 setTopSellingState({ ...topSellingState, items: updatedItems });
                               }}
                               className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none"

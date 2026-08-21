@@ -41,20 +41,28 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
 
   // Helper to convert a TopSellingItem to a full Product object
   const resolveProduct = (item: TopSellingItem, index: number): Product => {
-    const itemPrice = item.overridePrice ?? item.price;
-    const itemOrigPrice = item.overrideOriginalPrice ?? item.originalPrice;
+    const itemPrice = item.overridePrice !== undefined && item.overridePrice !== null && item.overridePrice > 0 
+      ? item.overridePrice 
+      : (item.price && item.price > 0 ? item.price : undefined);
+    
+    const itemOrigPrice = item.overrideOriginalPrice !== undefined && item.overrideOriginalPrice !== null && item.overrideOriginalPrice > 0 
+      ? item.overrideOriginalPrice 
+      : (item.originalPrice && item.originalPrice > 0 ? item.originalPrice : undefined);
+
     const itemBadge = (item.badgeText || item.badge || 'HOT DEAL') as any;
     const itemCustomImg = item.image && item.image.trim() !== '' ? item.image.trim() : '';
 
     if (item.productId) {
-      const foundInProps = products.find((p) => p.id === item.productId || (item.name && p.name.toLowerCase() === item.name.toLowerCase()));
+      const foundInProps = products.find((p) => p.id === item.productId);
       if (foundInProps) {
         const finalImg = itemCustomImg || foundInProps.image;
+        const finalPrice = itemPrice !== undefined ? itemPrice : foundInProps.price;
+        const finalOrigPrice = itemOrigPrice !== undefined ? itemOrigPrice : (foundInProps.originalPrice || finalPrice);
         return {
           ...foundInProps,
-          name: item.name && item.name.trim() !== '' ? item.name : foundInProps.name,
-          price: itemPrice || foundInProps.price,
-          originalPrice: itemOrigPrice ?? foundInProps.originalPrice,
+          name: item.name && item.name.trim() !== '' ? item.name.trim() : foundInProps.name,
+          price: finalPrice,
+          originalPrice: finalOrigPrice,
           weight: item.overrideWeight || foundInProps.weight,
           image: finalImg,
           badge: itemBadge,
@@ -69,14 +77,16 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
       'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&auto=format&fit=crop&q=80',
     ];
     const finalImg = itemCustomImg || fallbackImgs[index % fallbackImgs.length];
+    const finalPrice = itemPrice || 950;
+    const finalOrigPrice = itemOrigPrice || (finalPrice + 250);
 
     // Product representation
     return {
       id: item.productId || item.id || `custom-banner-${index + 1}`,
       name: item.name || `স্পেশাল অফার ${index + 1}`,
       category: 'Top Selling',
-      price: itemPrice || 950,
-      originalPrice: itemOrigPrice || 1200,
+      price: finalPrice,
+      originalPrice: finalOrigPrice,
       weight: item.overrideWeight || '১ কেজি',
       rating: 5.0,
       reviewCount: 240,
@@ -135,8 +145,8 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
       <div className="w-full grid grid-cols-2 gap-2 sm:gap-4 md:gap-6">
         {itemsToRender.map((item, index) => {
           const resolvedProduct = resolveProduct(item, index);
-          const currentPrice = Number(item.price || resolvedProduct.price || 0);
-          const origPrice = Number(item.originalPrice ?? resolvedProduct.originalPrice ?? 0);
+          const currentPrice = Number(resolvedProduct.price || 0);
+          const origPrice = Number(resolvedProduct.originalPrice || currentPrice);
           const discountAmount = origPrice > currentPrice ? origPrice - currentPrice : 0;
           const badgeText = item.badge || item.badgeText || resolvedProduct.badge || '';
           const isAdded = Boolean(addedItems[item.id]);
@@ -183,8 +193,8 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
 
                   {/* Banner Image - strictly fitted without aggressive cropping or zooming */}
                   <img
-                    src={item.image || resolvedProduct.image}
-                    alt={item.name || resolvedProduct.name}
+                    src={resolvedProduct.image}
+                    alt={resolvedProduct.name}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
                     loading="lazy"
@@ -194,7 +204,7 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
                 {/* Info Section */}
                 <div className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-left border-t border-stone-100">
                   <h3 className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-1 leading-snug group-hover:text-[#f38018] transition-colors">
-                    {item.name || resolvedProduct.name}
+                    {resolvedProduct.name}
                   </h3>
 
                   <div className="mt-1 flex items-baseline gap-1.5 font-bengali flex-wrap">

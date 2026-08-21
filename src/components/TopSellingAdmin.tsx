@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Product } from '../types';
 import { TopSellingSectionConfig, TopSellingItem, DEFAULT_TOP_SELLING_CONFIG } from '../types/topSelling';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface TopSellingAdminProps {
   config?: TopSellingSectionConfig;
@@ -43,14 +44,13 @@ export const TopSellingAdmin: React.FC<TopSellingAdminProps> = ({
     setEnabled(!enabled);
   };
 
-  const handleImageFileUpload = (index: number, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        handleUpdateItem(index, 'image', e.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+  const handleImageFileUpload = async (index: number, file: File) => {
+    try {
+      const compressed = await compressImageFile(file, 800, 800, 0.8);
+      handleUpdateItem(index, 'image', compressed);
+    } catch (err) {
+      console.error('Failed to compress image:', err);
+    }
   };
 
   const handleUpdateItem = (index: number, field: keyof TopSellingItem, value: any) => {
