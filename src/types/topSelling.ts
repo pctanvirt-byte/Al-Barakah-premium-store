@@ -5,8 +5,17 @@ export interface TopSellingItem {
   price: number;
   originalPrice?: number;
   image: string;
-  badge: string;
+  badge?: string;
+  badgeText?: string;
+  badgeBgColor?: string;
+  overridePrice?: number;
+  overrideOriginalPrice?: number;
+  overrideWeight?: string;
+  enabled?: boolean;
+  order?: number;
 }
+
+export type TopSellingItemConfig = TopSellingItem;
 
 export interface TopSellingSectionConfig {
   enabled: boolean;

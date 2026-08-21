@@ -27,34 +27,44 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
   if (!config.enabled) return null;
 
   // Resolve items from config.items or fallback to default
-  const itemsToRender: TopSellingItem[] = 
+  const rawItems = 
     config.items && config.items.length > 0
       ? config.items
       : DEFAULT_TOP_SELLING_CONFIG.items;
+
+  const itemsToRender: TopSellingItem[] = rawItems.filter((i) => i.enabled !== false);
 
   if (itemsToRender.length === 0) return null;
 
   // Helper to convert a TopSellingItem to a full Product object
   const resolveProduct = (item: TopSellingItem): Product => {
+    const itemPrice = item.overridePrice ?? item.price;
+    const itemOrigPrice = item.overrideOriginalPrice ?? item.originalPrice;
+    const itemBadge = (item.badgeText || item.badge || 'BESTSELLER') as any;
+
     if (item.productId) {
-      const foundInProps = products.find((p) => p.id === item.productId || p.name.toLowerCase() === item.name.toLowerCase());
+      const foundInProps = products.find((p) => p.id === item.productId || (item.name && p.name.toLowerCase() === item.name.toLowerCase()));
       if (foundInProps) {
         return {
           ...foundInProps,
           name: item.name || foundInProps.name,
-          price: item.price || foundInProps.price,
-          originalPrice: item.originalPrice ?? foundInProps.originalPrice,
+          price: itemPrice || foundInProps.price,
+          originalPrice: itemOrigPrice ?? foundInProps.originalPrice,
+          weight: item.overrideWeight || foundInProps.weight,
           image: item.image || foundInProps.image,
+          badge: itemBadge,
         };
       }
-      const foundInInitial = INITIAL_PRODUCTS.find((p) => p.id === item.productId || p.name.toLowerCase() === item.name.toLowerCase());
+      const foundInInitial = INITIAL_PRODUCTS.find((p) => p.id === item.productId || (item.name && p.name.toLowerCase() === item.name.toLowerCase()));
       if (foundInInitial) {
         return {
           ...foundInInitial,
           name: item.name || foundInInitial.name,
-          price: item.price || foundInInitial.price,
-          originalPrice: item.originalPrice ?? foundInInitial.originalPrice,
+          price: itemPrice || foundInInitial.price,
+          originalPrice: itemOrigPrice ?? foundInInitial.originalPrice,
+          weight: item.overrideWeight || foundInInitial.weight,
           image: item.image || foundInInitial.image,
+          badge: itemBadge,
         };
       }
     }
@@ -62,19 +72,20 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
     // Synthetic product fallback
     return {
       id: item.productId || item.id,
-      name: item.name,
+      name: item.name || 'Top Selling Product',
       category: 'Top Selling',
-      price: item.price,
-      originalPrice: item.originalPrice,
+      price: itemPrice || 950,
+      originalPrice: itemOrigPrice || 1200,
+      weight: item.overrideWeight || '1 Kg',
       rating: 5.0,
       reviewCount: 240,
-      image: item.image,
-      images: [item.image],
-      description: `${item.name} - ১০০% খাঁটি প্রিমিয়াম কোয়ালিটি পণ্য।`,
+      image: item.image || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80',
+      images: [item.image || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80'],
+      description: `${item.name || 'Premium Product'} - ১০০% খাঁটি প্রিমিয়াম কোয়ালিটি পণ্য।`,
       features: ['১০০% খাঁটি ও প্রিমিয়াম গ্রেড', 'অরিজিনাল কোয়ালিটি নিশ্চিত', 'ক্যাশ অন ডেলিভারি সুবিধা'],
       inStock: true,
       stockCount: 50,
-      badge: 'BESTSELLER',
+      badge: itemBadge,
       tags: ['top selling', 'bestseller']
     };
   };

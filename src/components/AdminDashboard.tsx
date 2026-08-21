@@ -44,7 +44,7 @@ import {
   Globe,
   Filter
 } from 'lucide-react';
-import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG } from '../types';
+import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, TopSellingItem, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG } from '../types';
 import { Layers, Flame, Truck, Send, CheckCircle, User, Download, Database, HardDriveDownload, RefreshCw } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { DEFAULT_HERO_CONFIG } from './HeroBanner';
@@ -738,7 +738,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Hero & Banners State
   const [bannerConfigState, setBannerConfigState] = useState<HeroBannerConfig>(heroBannerConfig);
-  const [bannerSubTab, setBannerSubTab] = useState<'SLIDES' | 'PROMO'>('SLIDES');
+  const [topSellingState, setTopSellingState] = useState<TopSellingSectionConfig>(topSellingConfig);
+  const [bannerSubTab, setBannerSubTab] = useState<'SLIDES' | 'PROMO' | 'TOP_SELLING'>('SLIDES');
   const [bannerSavedToast, setBannerSavedToast] = useState(false);
 
   useEffect(() => {
@@ -747,10 +748,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   }, [heroBannerConfig]);
 
+  useEffect(() => {
+    if (topSellingConfig) {
+      setTopSellingState(topSellingConfig);
+    }
+  }, [topSellingConfig]);
+
   const handleSaveBanners = (newCfg: HeroBannerConfig) => {
     setBannerConfigState(newCfg);
     if (onUpdateHeroBannerConfig) {
       onUpdateHeroBannerConfig(newCfg);
+    }
+    setBannerSavedToast(true);
+    setTimeout(() => setBannerSavedToast(false), 2500);
+  };
+
+  const handleSaveTopSellingAdmin = (newCfg: TopSellingSectionConfig) => {
+    setTopSellingState(newCfg);
+    if (onUpdateTopSellingConfig) {
+      onUpdateTopSellingConfig(newCfg);
     }
     setBannerSavedToast(true);
     setTimeout(() => setBannerSavedToast(false), 2500);
@@ -2985,7 +3001,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* Sub-tab Navigation */}
-            <div className="flex border-b border-stone-200 bg-white rounded-t-2xl px-6 pt-2">
+            <div className="flex flex-wrap border-b border-stone-200 bg-white rounded-t-2xl px-6 pt-2 gap-1">
               <button
                 type="button"
                 onClick={() => setBannerSubTab('SLIDES')}
@@ -3010,6 +3026,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Tag className="w-4 h-4" />
                 <span>Right Promo Card (1/3 Width)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBannerSubTab('TOP_SELLING')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 cursor-pointer transition-colors flex items-center gap-2 ${
+                  bannerSubTab === 'TOP_SELLING'
+                    ? 'border-[#0a5c36] text-[#0a5c36]'
+                    : 'border-transparent text-stone-500 hover:text-stone-900'
+                }`}
+              >
+                <Flame className="w-4 h-4 text-amber-500" />
+                <span>🔥 Top Selling Items & Banners ({topSellingState.items.length} items)</span>
               </button>
             </div>
 
@@ -3457,6 +3486,288 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-tab 3: Top Selling Section Items & Banners */}
+            {bannerSubTab === 'TOP_SELLING' && (
+              <div className="bg-white p-6 rounded-b-2xl border-x border-b border-stone-200 shadow-xs space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
+                  <div>
+                    <h4 className="text-sm font-bold text-stone-900">🔥 Top Selling Products & Custom Banners</h4>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      টপ সেলিং সেকশনের টাইটেল, অফার সাবটাইটেল এবং প্রতিটি আইটেমের কাস্টম ব্যানার/ছবি ও তথ্য নিয়ন্ত্রণ করুন।
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newItem: TopSellingItem = {
+                          id: `top_${Date.now()}`,
+                          productId: products[0]?.id || 'custom',
+                          name: products[0]?.name || 'New Top Selling Item',
+                          price: products[0]?.price || 850,
+                          originalPrice: products[0]?.originalPrice || 1050,
+                          badge: 'HOT DEAL',
+                          badgeText: '🔥 HOT DEAL',
+                          badgeBgColor: '#e11d48',
+                          overridePrice: products[0]?.price || 850,
+                          overrideOriginalPrice: products[0]?.originalPrice || 1050,
+                          overrideWeight: products[0]?.weight || '1 Kg',
+                          image: products[0]?.image || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80',
+                          enabled: true,
+                          order: topSellingState.items.length + 1,
+                        };
+                        const updated = {
+                          ...topSellingState,
+                          items: [...topSellingState.items, newItem]
+                        };
+                        handleSaveTopSellingAdmin(updated);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Item</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveTopSellingAdmin(topSellingState)}
+                      className="px-4 py-2 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save Top Selling</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section Title & Subtitle Settings */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-stone-50 p-4 rounded-xl border border-stone-200/80">
+                  <div>
+                    <label className="text-[11px] font-bold text-stone-600 block mb-1">Section Title (বাংলা/English)</label>
+                    <input
+                      type="text"
+                      value={topSellingState.title}
+                      onChange={(e) => {
+                        setTopSellingState({ ...topSellingState, title: e.target.value });
+                      }}
+                      className="w-full px-3 py-2 text-xs bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0a5c36]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-stone-600 block mb-1">Subtitle / Offer Note</label>
+                    <input
+                      type="text"
+                      value={topSellingState.subtitle || ''}
+                      onChange={(e) => {
+                        setTopSellingState({ ...topSellingState, subtitle: e.target.value });
+                      }}
+                      className="w-full px-3 py-2 text-xs bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0a5c36]"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between sm:justify-start gap-3 sm:pt-6">
+                    <label className="text-xs font-bold text-stone-700 cursor-pointer flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={topSellingState.enabled}
+                        onChange={(e) => {
+                          setTopSellingState({ ...topSellingState, enabled: e.target.checked });
+                        }}
+                        className="rounded text-[#0a5c36] focus:ring-[#0a5c36] cursor-pointer"
+                      />
+                      <span>Show on Homepage (হোমপেজে দেখান)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Items List */}
+                <div className="space-y-4">
+                  {topSellingState.items.map((item, idx) => {
+                    const linkedProduct = products.find((p) => p.id === item.productId);
+                    return (
+                      <div key={item.id || idx} className="p-4 sm:p-5 rounded-2xl border border-stone-200 bg-white shadow-xs space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-[#0a5c36] text-white text-xs font-black flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-bold text-stone-900">
+                              {item.name || linkedProduct?.name || 'Top Selling Item'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-medium text-stone-600 flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={item.enabled}
+                                onChange={(e) => {
+                                  const updatedItems = [...topSellingState.items];
+                                  updatedItems[idx].enabled = e.target.checked;
+                                  setTopSellingState({ ...topSellingState, items: updatedItems });
+                                }}
+                                className="rounded text-[#0a5c36] focus:ring-[#0a5c36] cursor-pointer"
+                              />
+                              <span>Active</span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm('Remove this top selling item?')) {
+                                  const updatedItems = topSellingState.items.filter((_, i) => i !== idx);
+                                  const updated = { ...topSellingState, items: updatedItems };
+                                  handleSaveTopSellingAdmin(updated);
+                                }
+                              }}
+                              className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
+                              title="Delete Item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                          {/* Left: Image Preview & URL */}
+                          <div className="md:col-span-4 space-y-2">
+                            <label className="text-[11px] font-bold text-stone-600 block">
+                              Custom Banner / Photo URL (কাস্টম ব্যানার লিংক)
+                            </label>
+                            <div className="w-full aspect-[4/3] rounded-xl overflow-hidden border border-stone-200 bg-stone-50 flex items-center justify-center relative">
+                              <img
+                                src={item.image || linkedProduct?.image}
+                                alt={item.name || 'Banner preview'}
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              value={item.image || ''}
+                              placeholder="Paste direct Image URL or Canva/ChatGPT banner link..."
+                              onChange={(e) => {
+                                const updatedItems = [...topSellingState.items];
+                                updatedItems[idx].image = e.target.value;
+                                setTopSellingState({ ...topSellingState, items: updatedItems });
+                              }}
+                              className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0a5c36]"
+                            />
+                          </div>
+
+                          {/* Right: Product linking & metadata overrides */}
+                          <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[11px] font-bold text-stone-600 block mb-1">
+                                Link to Real Product (অর্ডার বাটনে পণ্য সিলেক্ট)
+                              </label>
+                              <select
+                                value={item.productId}
+                                onChange={(e) => {
+                                  const updatedItems = [...topSellingState.items];
+                                  const selProd = products.find((p) => p.id === e.target.value);
+                                  updatedItems[idx].productId = e.target.value;
+                                  if (selProd && !updatedItems[idx].name) {
+                                    updatedItems[idx].name = selProd.name;
+                                  }
+                                  setTopSellingState({ ...topSellingState, items: updatedItems });
+                                }}
+                                className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none"
+                              >
+                                {products.map((p) => (
+                                  <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[11px] font-bold text-stone-600 block mb-1">
+                                Display Title (ঐচ্ছিক নাম)
+                              </label>
+                              <input
+                                type="text"
+                                value={item.name || ''}
+                                placeholder={linkedProduct?.name || 'Product Title'}
+                                onChange={(e) => {
+                                  const updatedItems = [...topSellingState.items];
+                                  updatedItems[idx].name = e.target.value;
+                                  setTopSellingState({ ...topSellingState, items: updatedItems });
+                                }}
+                                className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[11px] font-bold text-stone-600 block mb-1">
+                                Badge Text (যেমন: 🔥 BESTSELLER, 50% OFF)
+                              </label>
+                              <input
+                                type="text"
+                                value={item.badgeText || ''}
+                                placeholder="🔥 HOT DEAL"
+                                onChange={(e) => {
+                                  const updatedItems = [...topSellingState.items];
+                                  updatedItems[idx].badgeText = e.target.value;
+                                  setTopSellingState({ ...topSellingState, items: updatedItems });
+                                }}
+                                className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[11px] font-bold text-stone-600 block mb-1">
+                                Weight / Unit (যেমন: 1 Kg / 500g)
+                              </label>
+                              <input
+                                type="text"
+                                value={item.overrideWeight || ''}
+                                placeholder="1 Kg"
+                                onChange={(e) => {
+                                  const updatedItems = [...topSellingState.items];
+                                  updatedItems[idx].overrideWeight = e.target.value;
+                                  setTopSellingState({ ...topSellingState, items: updatedItems });
+                                }}
+                                className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[11px] font-bold text-stone-600 block mb-1">
+                                Offer Price (বিক্রয় মূল্য ৳)
+                              </label>
+                              <input
+                                type="number"
+                                value={item.overridePrice || ''}
+                                placeholder={String(linkedProduct?.price || 0)}
+                                onChange={(e) => {
+                                  const updatedItems = [...topSellingState.items];
+                                  updatedItems[idx].overridePrice = Number(e.target.value) || 0;
+                                  setTopSellingState({ ...topSellingState, items: updatedItems });
+                                }}
+                                className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[11px] font-bold text-stone-600 block mb-1">
+                                Regular Price (আগের কাটা মূল্য ৳)
+                              </label>
+                              <input
+                                type="number"
+                                value={item.overrideOriginalPrice || ''}
+                                placeholder={String(linkedProduct?.originalPrice || 0)}
+                                onChange={(e) => {
+                                  const updatedItems = [...topSellingState.items];
+                                  updatedItems[idx].overrideOriginalPrice = Number(e.target.value) || 0;
+                                  setTopSellingState({ ...topSellingState, items: updatedItems });
+                                }}
+                                className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
