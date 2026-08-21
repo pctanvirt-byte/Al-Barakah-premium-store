@@ -125,8 +125,8 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
               className="group bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-stone-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all duration-200 flex flex-col justify-between relative cursor-pointer"
             >
               <div>
-                {/* Product Image Container with subtle Glass-morphism hover effect */}
-                <div className="w-full h-36 sm:h-52 md:h-60 lg:h-64 flex items-center justify-center p-1 sm:p-3 bg-white rounded-lg sm:rounded-xl relative overflow-hidden transition-all duration-300">
+                {/* Product Image Container with flexible full fit */}
+                <div className="w-full aspect-square sm:aspect-[4/3] md:aspect-square flex items-center justify-center p-1 sm:p-2 bg-stone-50/50 rounded-lg sm:rounded-xl relative overflow-hidden transition-all duration-300">
                   {/* Badge */}
                   {badgeText && (
                     <div className="absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-10">
@@ -158,12 +158,12 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
                     src={item.image || resolvedProduct.image}
                     alt={item.name}
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-xs"
                     loading="lazy"
                   />
 
-                  {/* Subtle Glass-morphism backdrop-filter overlay on hover */}
-                  <div className="absolute inset-0 bg-stone-900/[0.03] backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none rounded-lg sm:rounded-xl" />
+                  {/* Subtle hover overlay */}
+                  <div className="absolute inset-0 bg-stone-900/[0.02] opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none rounded-lg sm:rounded-xl" />
                 </div>
 
                 {/* Product Info */}

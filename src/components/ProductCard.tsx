@@ -57,18 +57,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       id={`product-card-${product.id}`}
     >
       <div>
-        {/* Product Image Container with subtle Glass-morphism hover effect */}
-        <div className="relative w-full h-36 sm:h-44 md:h-48 bg-white rounded-lg sm:rounded-xl flex items-center justify-center p-1 sm:p-2 overflow-hidden transition-all duration-300">
+        {/* Product Image Container with subtle hover effect */}
+        <div className="relative w-full aspect-square bg-stone-50/50 rounded-lg sm:rounded-xl flex items-center justify-center p-1 sm:p-2 overflow-hidden transition-all duration-300">
           <img
             src={product.image || (product.images && product.images[0])}
             alt={product.name}
-            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-xs"
             loading="lazy"
             referrerPolicy="no-referrer"
           />
 
-          {/* Subtle Glass-morphism backdrop-filter overlay on hover */}
-          <div className="absolute inset-0 bg-stone-900/[0.03] backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none rounded-lg sm:rounded-xl" />
+          {/* Subtle hover overlay */}
+          <div className="absolute inset-0 bg-stone-900/[0.02] opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none rounded-lg sm:rounded-xl" />
 
           {/* Badge */}
           {product.badge && (
