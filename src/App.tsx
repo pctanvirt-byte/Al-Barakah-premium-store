@@ -219,21 +219,8 @@ export default function App() {
   // --- Hero Banner Configuration (Firestore Synced) ---
   const [heroBannerConfig, setHeroBannerConfig] = useState<HeroBannerConfig>(DEFAULT_HERO_CONFIG);
 
-  // --- Top Selling Products Configuration (Firestore & LocalStorage Synced) ---
-  const [topSellingConfig, setTopSellingConfig] = useState<TopSellingSectionConfig>(() => {
-    try {
-      const saved = localStorage.getItem('albarakah_premium_top_selling') || localStorage.getItem('albarakah_top_selling_config_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.items && parsed.items.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to parse cached top selling config', e);
-    }
-    return DEFAULT_TOP_SELLING_CONFIG;
-  });
+  // --- Top Selling Products Configuration (100% Pure Firestore Synced) ---
+  const [topSellingConfig, setTopSellingConfig] = useState<TopSellingSectionConfig>(DEFAULT_TOP_SELLING_CONFIG);
 
   // --- Courier Configuration State (Steadfast & Pathao - Firestore Synced) ---
   const [courierConfig, setCourierConfig] = useState<CourierConfig>(DEFAULT_COURIER_CONFIG);
@@ -369,7 +356,6 @@ export default function App() {
         const topSellingData = settings.topSelling as TopSellingSectionConfig;
         if (topSellingData.items && topSellingData.items.length > 0) {
           setTopSellingConfig(topSellingData);
-          localStorage.setItem('albarakah_premium_top_selling', JSON.stringify(topSellingData));
         }
       }
       if (settings.courierConfig && typeof settings.courierConfig === 'object') {
@@ -1056,14 +1042,12 @@ export default function App() {
         topSellingConfig={topSellingConfig}
         onUpdateTopSellingConfig={async (newTopSelling) => {
           setTopSellingConfig(newTopSelling);
-          localStorage.setItem('albarakah_premium_top_selling', JSON.stringify(newTopSelling));
           await saveStoreSettingsToDb({ topSelling: newTopSelling });
           showToast('টপ সেলিং সেকশন সফলভাবে আপডেট করা হয়েছে!');
         }}
         courierConfig={courierConfig}
         onUpdateCourierConfig={async (newCourierCfg) => {
           setCourierConfig(newCourierCfg);
-          localStorage.setItem('albarakah_premium_courier_config', JSON.stringify(newCourierCfg));
           await saveStoreSettingsToDb({ courierConfig: newCourierCfg });
           showToast('কুরিয়ার কনফিগারেশন সফলভাবে সেভ করা হয়েছে!');
         }}
@@ -1074,7 +1058,6 @@ export default function App() {
         deliveryConfig={deliveryConfig}
         onUpdateDeliveryConfig={async (newDeliveryCfg) => {
           setDeliveryConfig(newDeliveryCfg);
-          localStorage.setItem('albarakah_premium_delivery_config', JSON.stringify(newDeliveryCfg));
           await saveStoreSettingsToDb({ deliveryConfig: newDeliveryCfg });
           showToast('ডেলিভারি চার্জ ও শিপিং পলিসি সফলভাবে সেভ করা হয়েছে!');
         }}
