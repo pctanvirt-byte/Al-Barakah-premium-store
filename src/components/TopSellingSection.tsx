@@ -141,8 +141,8 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
         </div>
       )}
 
-      {/* 2 Lines with 2 Banners in each line (2x2 = 4 Banners) with clean, unzoomed framing */}
-      <div className="max-w-4xl mx-auto grid grid-cols-2 gap-2 sm:gap-4 md:gap-5">
+      {/* 2 Lines with 2 Banners in each line (2x2 = 4 Banners) with full-width framing */}
+      <div className="w-full grid grid-cols-2 gap-2 sm:gap-4 md:gap-6">
         {itemsToRender.map((item, index) => {
           const resolvedProduct = resolveProduct(item, index);
           const currentPrice = Number(item.price || resolvedProduct.price || 0);
@@ -160,8 +160,8 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
               className="group bg-white rounded-xl sm:rounded-2xl border border-stone-200/90 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden relative cursor-pointer"
             >
               <div>
-                {/* Banner / Product Image Container - Auto Contain with clean bounds */}
-                <div className="w-full h-[140px] sm:h-[200px] md:h-[240px] bg-white flex items-center justify-center p-2 relative overflow-hidden">
+                {/* Banner / Product Image Container - Strictly unzoomed object-contain */}
+                <div className="w-full h-[140px] sm:h-[220px] md:h-[270px] lg:h-[320px] bg-white flex items-center justify-center p-2 sm:p-4 relative overflow-hidden">
                   {/* Badge */}
                   {badgeText && (
                     <div className="absolute top-2 left-2 z-10">
