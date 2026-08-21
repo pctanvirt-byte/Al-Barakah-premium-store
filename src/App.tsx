@@ -297,7 +297,6 @@ export default function App() {
           'albarakah_premium_reviews',
           'albarakah_premium_staff_list',
           'albarakah_premium_hero_banners',
-          'albarakah_premium_top_selling',
           'albarakah_premium_courier_config',
           'albarakah_premium_bkash_config',
           'albarakah_premium_delivery_config',
