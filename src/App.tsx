@@ -367,7 +367,11 @@ export default function App() {
         }
       }
       if (settings.topSelling && typeof settings.topSelling === 'object') {
-        setTopSellingConfig(settings.topSelling);
+        const topSellingData = settings.topSelling as TopSellingSectionConfig;
+        if (topSellingData.items && topSellingData.items.length > 0) {
+          setTopSellingConfig(topSellingData);
+          localStorage.setItem('albarakah_premium_top_selling', JSON.stringify(topSellingData));
+        }
       }
       if (settings.courierConfig && typeof settings.courierConfig === 'object') {
         setCourierConfig((prev) => ({

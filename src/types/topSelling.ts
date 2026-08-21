@@ -8,6 +8,7 @@ export interface TopSellingItem {
   badge?: string;
   badgeText?: string;
   badgeBgColor?: string;
+  badgeTextColor?: string;
   overridePrice?: number;
   overrideOriginalPrice?: number;
   overrideWeight?: string;

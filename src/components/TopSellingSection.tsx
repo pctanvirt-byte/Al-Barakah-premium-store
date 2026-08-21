@@ -20,67 +20,78 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
   compareProducts = [],
   onToggleCompare,
   onAddToCart,
+  onBuyNow,
   onOpenProductModal,
 }) => {
   const [addedItems, setAddedItems] = useState<{ [id: string]: boolean }>({});
 
   if (!config.enabled) return null;
 
-  // Resolve items from config.items or fallback to default
+  // Resolve items from config.items or fallback to default to ensure exactly 4 items (2x2 grid)
   const rawItems = 
     config.items && config.items.length > 0
       ? config.items
       : DEFAULT_TOP_SELLING_CONFIG.items;
 
-  const itemsToRender: TopSellingItem[] = rawItems.filter((i) => i.enabled !== false);
-
-  if (itemsToRender.length === 0) return null;
+  let itemsToRender: TopSellingItem[] = rawItems.filter((i) => i.enabled !== false);
+  
+  // Guarantee exactly 4 items in 2 lines (2 in line 1, 2 in line 2)
+  while (itemsToRender.length < 4) {
+    const idx = itemsToRender.length;
+    itemsToRender.push(DEFAULT_TOP_SELLING_CONFIG.items[idx] || {
+      id: `top-banner-${idx + 1}`,
+      name: `স্পেশাল অফার ${idx + 1}`,
+      image: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&auto=format&fit=crop&q=80',
+      price: 950,
+      originalPrice: 1200,
+      badge: 'HOT DEAL',
+    });
+  }
+  itemsToRender = itemsToRender.slice(0, 4);
 
   // Helper to convert a TopSellingItem to a full Product object
-  const resolveProduct = (item: TopSellingItem): Product => {
+  const resolveProduct = (item: TopSellingItem, index: number): Product => {
     const itemPrice = item.overridePrice ?? item.price;
     const itemOrigPrice = item.overrideOriginalPrice ?? item.originalPrice;
-    const itemBadge = (item.badgeText || item.badge || 'BESTSELLER') as any;
+    const itemBadge = (item.badgeText || item.badge || 'HOT DEAL') as any;
+    const itemCustomImg = item.image && item.image.trim() !== '' ? item.image.trim() : '';
 
     if (item.productId) {
       const foundInProps = products.find((p) => p.id === item.productId || (item.name && p.name.toLowerCase() === item.name.toLowerCase()));
       if (foundInProps) {
+        const finalImg = itemCustomImg || foundInProps.image;
         return {
           ...foundInProps,
-          name: item.name || foundInProps.name,
+          name: item.name && item.name.trim() !== '' ? item.name : foundInProps.name,
           price: itemPrice || foundInProps.price,
           originalPrice: itemOrigPrice ?? foundInProps.originalPrice,
           weight: item.overrideWeight || foundInProps.weight,
-          image: item.image || foundInProps.image,
-          badge: itemBadge,
-        };
-      }
-      const foundInInitial = INITIAL_PRODUCTS.find((p) => p.id === item.productId || (item.name && p.name.toLowerCase() === item.name.toLowerCase()));
-      if (foundInInitial) {
-        return {
-          ...foundInInitial,
-          name: item.name || foundInInitial.name,
-          price: itemPrice || foundInInitial.price,
-          originalPrice: itemOrigPrice ?? foundInInitial.originalPrice,
-          weight: item.overrideWeight || foundInInitial.weight,
-          image: item.image || foundInInitial.image,
+          image: finalImg,
           badge: itemBadge,
         };
       }
     }
 
+    const fallbackImgs = [
+      'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1631451095765-2c91616fc9e6?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&auto=format&fit=crop&q=80',
+    ];
+    const finalFallback = itemCustomImg || fallbackImgs[index % fallbackImgs.length];
+
     // Synthetic product fallback
     return {
-      id: item.productId || item.id,
-      name: item.name || 'Top Selling Product',
+      id: item.productId || item.id || `custom-banner-${index + 1}`,
+      name: item.name || `স্পেশাল অফার ${index + 1}`,
       category: 'Top Selling',
       price: itemPrice || 950,
       originalPrice: itemOrigPrice || 1200,
-      weight: item.overrideWeight || '1 Kg',
+      weight: item.overrideWeight || '১ কেজি',
       rating: 5.0,
       reviewCount: 240,
-      image: item.image || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80',
-      images: [item.image || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80'],
+      image: finalFallback,
+      images: [finalFallback],
       description: `${item.name || 'Premium Product'} - ১০০% খাঁটি প্রিমিয়াম কোয়ালিটি পণ্য।`,
       features: ['১০০% খাঁটি ও প্রিমিয়াম গ্রেড', 'অরিজিনাল কোয়ালিটি নিশ্চিত', 'ক্যাশ অন ডেলিভারি সুবিধা'],
       inStock: true,
@@ -99,6 +110,11 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
     }, 1500);
   };
 
+  const handleOrder = (e: React.MouseEvent, prod: Product) => {
+    e.stopPropagation();
+    onBuyNow(prod, 1);
+  };
+
   const handleCompareClick = (e: React.MouseEvent, prod: Product) => {
     e.stopPropagation();
     if (onToggleCompare) {
@@ -109,40 +125,51 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
   return (
     <section 
       id="top-selling-section"
-      className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8"
+      className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-6"
     >
-      {/* Centered Heading with Clean Font matching Ghorer Bazar */}
-      <div className="text-center mb-4 sm:mb-7">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#113149] tracking-tight font-sans">
-          {config.title || 'Top Selling Products'}
-        </h2>
-      </div>
+      {/* Centered Heading */}
+      {config.title && (
+        <div className="text-center mb-3 sm:mb-5">
+          <h2 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-[#113149] tracking-tight font-sans">
+            {config.title}
+          </h2>
+          {config.subtitle && (
+            <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
+              {config.subtitle}
+            </p>
+          )}
+        </div>
+      )}
 
-      {/* 2-Column Grid on Mobile, Tab, and PC (2 products per line) */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-5 md:gap-6">
-        {itemsToRender.map((item) => {
-          const resolvedProduct = resolveProduct(item);
+      {/* 2 Lines with 2 Banners in each line (2x2 = 4 Banners) with clean, unzoomed framing */}
+      <div className="max-w-4xl mx-auto grid grid-cols-2 gap-2 sm:gap-4 md:gap-5">
+        {itemsToRender.map((item, index) => {
+          const resolvedProduct = resolveProduct(item, index);
           const currentPrice = Number(item.price || resolvedProduct.price || 0);
           const origPrice = Number(item.originalPrice ?? resolvedProduct.originalPrice ?? 0);
           const discountAmount = origPrice > currentPrice ? origPrice - currentPrice : 0;
-          const badgeText = item.badge || resolvedProduct.badge || '';
+          const badgeText = item.badge || item.badgeText || resolvedProduct.badge || '';
           const isAdded = Boolean(addedItems[item.id]);
           const isCompared = compareProducts.some((p) => p.id === resolvedProduct.id);
 
           return (
             <div
-              key={item.id}
+              key={item.id || index}
+              id={`top-selling-banner-card-${item.id || index}`}
               onClick={() => onOpenProductModal(resolvedProduct)}
-              className="group bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-stone-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-all duration-200 flex flex-col justify-between relative cursor-pointer"
+              className="group bg-white rounded-xl sm:rounded-2xl border border-stone-200/90 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden relative cursor-pointer"
             >
               <div>
-                {/* Product Image Container with flexible full fit */}
-                <div className="w-full aspect-square sm:aspect-[4/3] md:aspect-square flex items-center justify-center p-1 sm:p-2 bg-stone-50/50 rounded-lg sm:rounded-xl relative overflow-hidden transition-all duration-300">
+                {/* Banner / Product Image Container - Auto Contain with clean bounds */}
+                <div className="w-full h-[140px] sm:h-[200px] md:h-[240px] bg-white flex items-center justify-center p-2 relative overflow-hidden">
                   {/* Badge */}
                   {badgeText && (
-                    <div className="absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-10">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold text-white bg-[#ef4444] shadow-2xs">
-                        <Flame className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-white text-white" />
+                    <div className="absolute top-2 left-2 z-10">
+                      <span 
+                        style={{ backgroundColor: item.badgeBgColor || '#ef4444', color: item.badgeTextColor || '#ffffff' }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] sm:text-[11px] font-black uppercase shadow-xs tracking-wide"
+                      >
+                        <Flame className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current" />
                         <span>{badgeText}</span>
                       </span>
                     </div>
@@ -153,82 +180,71 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
                     <button
                       type="button"
                       onClick={(e) => handleCompareClick(e, resolvedProduct)}
-                      className={`absolute top-1.5 right-1.5 z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                      className={`absolute top-2 right-2 z-10 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                         isCompared
                           ? 'bg-[#f38018] text-white shadow-xs'
                           : 'bg-stone-100/90 hover:bg-stone-200 text-stone-600 hover:text-[#f38018]'
                       }`}
-                      title={isCompared ? 'In Comparison (তুলনা থেকে সরান)' : 'Compare Product (পণ্য তুলনা করুন)'}
-                      aria-label="Toggle compare"
+                      title={isCompared ? 'In Comparison' : 'Compare Product'}
                     >
-                      <ArrowLeftRight className="w-3.5 h-3.5 stroke-[2.4]" />
+                      <ArrowLeftRight className="w-3 h-3 stroke-[2.4]" />
                     </button>
                   )}
 
+                  {/* Banner Image - strictly fitted without aggressive cropping or zooming */}
                   <img
                     src={item.image || resolvedProduct.image}
-                    alt={item.name}
+                    alt={item.name || resolvedProduct.name}
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-xs"
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
                     loading="lazy"
                   />
-
-                  {/* Subtle hover overlay */}
-                  <div className="absolute inset-0 bg-stone-900/[0.02] opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none rounded-lg sm:rounded-xl" />
                 </div>
 
-                {/* Product Info */}
-                <div className="mt-2 sm:mt-2.5 text-left">
-                  {/* Product Title */}
-                  <h3 className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-2 leading-snug group-hover:text-[#f38018] transition-colors min-h-[2rem] sm:min-h-[2.4rem]">
-                    {item.name}
+                {/* Info Section */}
+                <div className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-left border-t border-stone-100">
+                  <h3 className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-1 leading-snug group-hover:text-[#f38018] transition-colors">
+                    {item.name || resolvedProduct.name}
                   </h3>
 
-                  {/* Price & Strikeout */}
-                  <div className="mt-1.5 sm:mt-2 flex items-baseline gap-1.5 font-bengali flex-wrap">
-                    <span className="text-sm sm:text-base md:text-lg font-bold text-[#f38018] tracking-tight select-none">
+                  <div className="mt-1 flex items-baseline gap-1.5 font-bengali flex-wrap">
+                    <span className="text-sm sm:text-base md:text-lg font-black text-[#f38018] tracking-tight">
                       ৳{currentPrice.toLocaleString()}
                     </span>
                     {origPrice > currentPrice && (
-                      <span className="text-xs sm:text-sm text-stone-400 line-through select-none">
+                      <span className="text-[11px] sm:text-xs text-stone-400 line-through">
                         ৳{origPrice.toLocaleString()}
                       </span>
                     )}
-                  </div>
-
-                  {/* Dynamic Auto-Discount Save Badge (Shows ONLY when discountAmount > 0) */}
-                  {discountAmount > 0 && (
-                    <div className="mt-1">
-                      <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold text-[#15803d] bg-[#dcfce7] font-bengali">
+                    {discountAmount > 0 && (
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] font-bold text-[#15803d] bg-[#dcfce7]">
                         Save ৳{discountAmount.toLocaleString()}
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Add To Cart Button (Full-width outline orange button matching Ghorer Bazar) */}
-              <div className="mt-3 pt-2">
+              {/* Order & Cart Buttons */}
+              <div className="p-2 sm:p-3 pt-0 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => handleOrder(e, resolvedProduct)}
+                  className="flex-1 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-bold py-1.5 sm:py-2 px-1.5 rounded-lg text-[11px] sm:text-xs text-center shadow-xs transition-all active:scale-[0.98]"
+                >
+                  অর্ডার করুন
+                </button>
                 <button
                   type="button"
                   onClick={(e) => handleAdd(e, resolvedProduct, item.id)}
-                  className={`w-full py-1.5 sm:py-2 px-2 rounded-lg border font-bold text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-200 shadow-2xs active:scale-[0.98] cursor-pointer ${
+                  className={`px-2.5 py-1.5 sm:py-2 rounded-lg border font-bold text-[11px] sm:text-xs flex items-center justify-center transition-all ${
                     isAdded
                       ? 'bg-emerald-600 border-emerald-600 text-white'
-                      : 'border-[#f38018] text-[#f38018] hover:bg-[#f38018] hover:text-white bg-white'
+                      : 'border-rose-200 text-rose-600 hover:bg-rose-50 bg-white'
                   }`}
+                  title="কার্ট-এ যোগ করুন"
                 >
-                  {isAdded ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Added!</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="w-3.5 h-3.5 stroke-[2.2]" />
-                      <span>Add To Cart</span>
-                    </>
-                  )}
+                  {isAdded ? <Check className="w-3.5 h-3.5 stroke-[2.5]" /> : <ShoppingCart className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -238,5 +254,7 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
     </section>
   );
 };
+
+export default TopSellingSection;
 
 
