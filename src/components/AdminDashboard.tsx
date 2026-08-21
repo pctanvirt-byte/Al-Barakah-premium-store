@@ -763,13 +763,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setBannerSavedToast(false), 2500);
   };
 
-  const handleSaveTopSellingAdmin = (newCfg: TopSellingSectionConfig) => {
-    setTopSellingState(newCfg);
-    if (onUpdateTopSellingConfig) {
-      onUpdateTopSellingConfig(newCfg);
+  const [isSavingTopSelling, setIsSavingTopSelling] = useState(false);
+
+  const handleSaveTopSellingAdmin = async (newCfg: TopSellingSectionConfig) => {
+    setIsSavingTopSelling(true);
+    try {
+      setTopSellingState(newCfg);
+      if (onUpdateTopSellingConfig) {
+        await onUpdateTopSellingConfig(newCfg);
+      }
+      setBannerSavedToast(true);
+      setTimeout(() => setBannerSavedToast(false), 3000);
+    } catch (err) {
+      console.error('Error saving top selling config:', err);
+      alert('টপ সেলিং সেভ করার সময় ত্রুটি হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+    } finally {
+      setIsSavingTopSelling(false);
     }
-    setBannerSavedToast(true);
-    setTimeout(() => setBannerSavedToast(false), 2500);
   };
 
   // Customer Reviews State
@@ -2479,11 +2489,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                   <button
                     type="button"
+                    disabled={isSavingTopSelling}
                     onClick={() => handleSaveTopSellingAdmin(topSellingState)}
-                    className="px-4 py-2 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                    className="px-4 py-2 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] disabled:bg-stone-400 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
                   >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Save Top Selling</span>
+                    {isSavingTopSelling ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving to Cloud...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Save Top Selling</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -2574,30 +2594,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        {/* Left: Image Preview & URL */}
+                        {/* Left: Image Preview, Direct File Upload & URL */}
                         <div className="md:col-span-4 space-y-2">
                           <label className="text-[11px] font-bold text-stone-600 block">
-                            Custom Banner / Photo URL (কাস্টম ব্যানার লিংক)
+                            Custom Banner / Photo (ছবি আপলোড বা লিংক)
                           </label>
-                          <div className="w-full aspect-[4/3] rounded-xl overflow-hidden border border-stone-200 bg-stone-50 flex items-center justify-center relative">
+                          <div className="w-full aspect-[4/3] rounded-xl overflow-hidden border border-stone-200 bg-stone-50 flex items-center justify-center relative group">
                             <img
                               src={item.image || linkedProduct?.image}
                               alt={item.name || 'Banner preview'}
                               referrerPolicy="no-referrer"
                               className="w-full h-full object-contain"
                             />
+                            {/* Overlay file upload button */}
+                            <label className="absolute inset-0 bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs font-bold">
+                              <Upload className="w-5 h-5 mb-1" />
+                              <span>ছবি আপলোড করুন</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      const base64 = reader.result as string;
+                                      const updatedItems = [...topSellingState.items];
+                                      updatedItems[idx].image = base64;
+                                      setTopSellingState({ ...topSellingState, items: updatedItems });
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
                           </div>
-                          <input
-                            type="text"
-                            value={item.image || ''}
-                            placeholder="Paste direct Image URL or Canva/ChatGPT banner link..."
-                            onChange={(e) => {
-                              const updatedItems = [...topSellingState.items];
-                              updatedItems[idx].image = e.target.value;
-                              setTopSellingState({ ...topSellingState, items: updatedItems });
-                            }}
-                            className="w-full px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0a5c36]"
-                          />
+                          
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              value={item.image || ''}
+                              placeholder="Paste direct Image URL or link..."
+                              onChange={(e) => {
+                                const updatedItems = [...topSellingState.items];
+                                updatedItems[idx].image = e.target.value;
+                                setTopSellingState({ ...topSellingState, items: updatedItems });
+                              }}
+                              className="flex-1 px-2.5 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0a5c36]"
+                            />
+                            <label className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shrink-0" title="Upload from Device">
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      const base64 = reader.result as string;
+                                      const updatedItems = [...topSellingState.items];
+                                      updatedItems[idx].image = base64;
+                                      setTopSellingState({ ...topSellingState, items: updatedItems });
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
                         </div>
 
                         {/* Right: Product linking & metadata overrides */}

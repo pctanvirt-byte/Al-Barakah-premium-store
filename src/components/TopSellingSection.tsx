@@ -27,7 +27,7 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
 
   if (!config.enabled) return null;
 
-  // Resolve items from config.items or fallback to default to ensure exactly 4 items (2x2 grid)
+  // Resolve items from config.items
   const rawItems = 
     config.items && config.items.length > 0
       ? config.items
@@ -35,19 +35,9 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
 
   let itemsToRender: TopSellingItem[] = rawItems.filter((i) => i.enabled !== false);
   
-  // Guarantee exactly 4 items in 2 lines (2 in line 1, 2 in line 2)
-  while (itemsToRender.length < 4) {
-    const idx = itemsToRender.length;
-    itemsToRender.push(DEFAULT_TOP_SELLING_CONFIG.items[idx] || {
-      id: `top-banner-${idx + 1}`,
-      name: `স্পেশাল অফার ${idx + 1}`,
-      image: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&auto=format&fit=crop&q=80',
-      price: 950,
-      originalPrice: 1200,
-      badge: 'HOT DEAL',
-    });
+  if (itemsToRender.length === 0) {
+    itemsToRender = DEFAULT_TOP_SELLING_CONFIG.items.slice(0, 4);
   }
-  itemsToRender = itemsToRender.slice(0, 4);
 
   // Helper to convert a TopSellingItem to a full Product object
   const resolveProduct = (item: TopSellingItem, index: number): Product => {
@@ -78,9 +68,9 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
       'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=800&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&auto=format&fit=crop&q=80',
     ];
-    const finalFallback = itemCustomImg || fallbackImgs[index % fallbackImgs.length];
+    const finalImg = itemCustomImg || fallbackImgs[index % fallbackImgs.length];
 
-    // Synthetic product fallback
+    // Product representation
     return {
       id: item.productId || item.id || `custom-banner-${index + 1}`,
       name: item.name || `স্পেশাল অফার ${index + 1}`,
@@ -90,8 +80,8 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
       weight: item.overrideWeight || '১ কেজি',
       rating: 5.0,
       reviewCount: 240,
-      image: finalFallback,
-      images: [finalFallback],
+      image: finalImg,
+      images: [finalImg],
       description: `${item.name || 'Premium Product'} - ১০০% খাঁটি প্রিমিয়াম কোয়ালিটি পণ্য।`,
       features: ['১০০% খাঁটি ও প্রিমিয়াম গ্রেড', 'অরিজিনাল কোয়ালিটি নিশ্চিত', 'ক্যাশ অন ডেলিভারি সুবিধা'],
       inStock: true,
