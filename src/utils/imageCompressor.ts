@@ -1,13 +1,13 @@
 /**
- * Utility for client-side image compression to ensure data URLs stay under 30KB - 80KB
+ * Utility for client-side image compression to ensure data URLs stay under 25KB - 50KB
  * and never exceed Firestore's 1MB document limit.
  */
 
 export async function compressImageFile(
   file: File,
-  maxWidth = 700,
-  maxHeight = 700,
-  quality = 0.75
+  maxWidth = 600,
+  maxHeight = 600,
+  quality = 0.72
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -28,17 +28,17 @@ export async function compressImageFile(
 
 export async function compressDataUrl(
   dataUrl: string,
-  maxWidth = 700,
-  maxHeight = 700,
-  quality = 0.75
+  maxWidth = 600,
+  maxHeight = 600,
+  quality = 0.72
 ): Promise<string> {
-  // If not a base64 data url, return directly
+  // If not a base64 data url, return directly (e.g. https:// URLs)
   if (!dataUrl || !dataUrl.startsWith('data:image/')) {
     return dataUrl;
   }
 
-  // If already small (< 60KB), return as is
-  if (dataUrl.length < 60000) {
+  // If already ultra small (< 25KB), return as is
+  if (dataUrl.length < 25000) {
     return dataUrl;
   }
 
@@ -79,8 +79,12 @@ export async function compressDataUrl(
       ctx.drawImage(img, 0, 0, width, height);
 
       // Export as jpeg with compression
-      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-      resolve(compressedDataUrl);
+      try {
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedDataUrl);
+      } catch {
+        resolve(dataUrl);
+      }
     };
 
     img.onerror = () => {

@@ -1009,11 +1009,15 @@ export default function App() {
           }
 
           setProducts(updatedProducts);
-          // If a product was updated or added, persist to Firestore
+          // Persist updated or new products to Firestore in parallel
           if (Array.isArray(updatedProducts)) {
-            for (const p of updatedProducts) {
-              await saveProductToDb(p);
-            }
+            await Promise.all(
+              updatedProducts.map((p) =>
+                saveProductToDb(p).catch((err) =>
+                  console.error('Product Firestore save error:', err)
+                )
+              )
+            );
           }
         }}
         onUpdateOrders={async (updatedOrders) => {
@@ -1026,9 +1030,13 @@ export default function App() {
 
           setOrders(updatedOrders);
           if (Array.isArray(updatedOrders)) {
-            for (const o of updatedOrders) {
-              await saveOrderToDb(o);
-            }
+            await Promise.all(
+              updatedOrders.map((o) =>
+                saveOrderToDb(o).catch((err) =>
+                  console.error('Order Firestore save error:', err)
+                )
+              )
+            );
           }
         }}
         onUpdateCategories={handleUpdateCategories}

@@ -47,9 +47,9 @@ export const removeUndefinedFields = <T>(obj: T): T => {
 export const sanitizeCategory = async (category: CategoryItem): Promise<CategoryItem> => {
   let image = category.image || '';
   if (image.startsWith('data:image/')) {
-    if (image.length > 70000) {
+    if (image.length > 30000) {
       try {
-        image = await compressDataUrl(image, 500, 500, 0.72);
+        image = await compressDataUrl(image, 500, 500, 0.70);
       } catch {
         const defaultCat = INITIAL_CATEGORIES.find((c) => c.id === category.id || c.slug === category.slug);
         image = defaultCat?.image || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=600&auto=format&fit=crop&q=80';
@@ -64,9 +64,9 @@ export const sanitizeCategory = async (category: CategoryItem): Promise<Category
 
 export const sanitizeProduct = async (product: Product): Promise<Product> => {
   let image = product.image || '';
-  if (image.startsWith('data:image/') && image.length > 70000) {
+  if (image.startsWith('data:image/') && image.length > 30000) {
     try {
-      image = await compressDataUrl(image, 700, 700, 0.75);
+      image = await compressDataUrl(image, 600, 600, 0.70);
     } catch {
       image = 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80';
     }
@@ -76,9 +76,9 @@ export const sanitizeProduct = async (product: Product): Promise<Product> => {
   if (Array.isArray(images) && images.length > 0) {
     images = await Promise.all(
       images.map(async (img) => {
-        if (img && img.startsWith('data:image/') && img.length > 70000) {
+        if (img && img.startsWith('data:image/') && img.length > 30000) {
           try {
-            return await compressDataUrl(img, 700, 700, 0.75);
+            return await compressDataUrl(img, 600, 600, 0.70);
           } catch {
             return image;
           }
@@ -91,7 +91,7 @@ export const sanitizeProduct = async (product: Product): Promise<Product> => {
   return {
     ...product,
     image,
-    images,
+    images: images && images.length > 0 ? images : [image],
   };
 };
 
@@ -116,8 +116,9 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, max
 export const saveProductToDb = async (product: Product): Promise<void> => {
   try {
     const sanitized = await sanitizeProduct(product);
-    const docRef = doc(db, PRODUCTS_COLLECTION, sanitized.id);
-    await setDoc(docRef, sanitized, { merge: true });
+    const cleaned = removeUndefinedFields(sanitized);
+    const docRef = doc(db, PRODUCTS_COLLECTION, cleaned.id);
+    await setDoc(docRef, cleaned, { merge: true });
   } catch (err) {
     console.error('Error saving product to DB:', err);
   }
@@ -210,7 +211,8 @@ export const subscribeToReviews = (callback: (reviews: ProductReview[]) => void,
 export const saveReviewToDb = async (review: ProductReview): Promise<void> => {
   try {
     const docRef = doc(db, REVIEWS_COLLECTION, review.id);
-    await setDoc(docRef, review, { merge: true });
+    const cleanedReview = removeUndefinedFields(review);
+    await setDoc(docRef, cleanedReview, { merge: true });
   } catch (err) {
     console.error('Error saving review to DB:', err);
   }
@@ -257,8 +259,9 @@ export const subscribeToCategories = (callback: (categories: CategoryItem[]) => 
 export const saveCategoryToDb = async (category: CategoryItem): Promise<void> => {
   try {
     const sanitized = await sanitizeCategory(category);
-    const docRef = doc(db, CATEGORIES_COLLECTION, sanitized.id);
-    await setDoc(docRef, sanitized, { merge: true });
+    const cleaned = removeUndefinedFields(sanitized);
+    const docRef = doc(db, CATEGORIES_COLLECTION, cleaned.id);
+    await setDoc(docRef, cleaned, { merge: true });
   } catch (err) {
     console.error('Error saving category to DB:', err);
   }

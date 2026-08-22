@@ -48,7 +48,7 @@ import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, P
 import { Layers, Flame, Truck, Send, CheckCircle, User, Download, Database, HardDriveDownload, RefreshCw } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { DEFAULT_HERO_CONFIG } from './HeroBanner';
-import { compressImageFile } from '../utils/imageCompressor';
+import { compressImageFile, compressDataUrl } from '../utils/imageCompressor';
 import { DEFAULT_TOP_SELLING_CONFIG } from '../types/topSelling';
 import { TopSellingAdmin } from './TopSellingAdmin';
 import { TakaIcon } from './TakaIcon';
@@ -498,16 +498,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleProductImageSlotUpload = async (slotIndex: number, file: File) => {
     try {
-      const compressed = await compressImageFile(file, 700, 700, 0.75);
+      const compressed = await compressImageFile(file, 600, 600, 0.70);
       const updated = [...prodFormImages];
       updated[slotIndex] = compressed;
       setProdFormImages(updated);
     } catch {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         if (e.target?.result) {
+          const raw = e.target.result as string;
+          const compressed = await compressDataUrl(raw, 600, 600, 0.70);
           const updated = [...prodFormImages];
-          updated[slotIndex] = e.target.result as string;
+          updated[slotIndex] = compressed;
           setProdFormImages(updated);
         }
       };
@@ -517,17 +519,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleHeroSlideImageUpload = async (slideId: string, file: File) => {
     try {
-      const compressed = await compressImageFile(file, 1000, 600, 0.75);
+      const compressed = await compressImageFile(file, 900, 500, 0.70);
       const updated = bannerConfigState.slides.map((s) =>
         s.id === slideId ? { ...s, image: compressed } : s
       );
       setBannerConfigState({ ...bannerConfigState, slides: updated });
     } catch {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         if (e.target?.result) {
+          const raw = e.target.result as string;
+          const compressed = await compressDataUrl(raw, 900, 500, 0.70);
           const updated = bannerConfigState.slides.map((s) =>
-            s.id === slideId ? { ...s, image: e.target.result as string } : s
+            s.id === slideId ? { ...s, image: compressed } : s
           );
           setBannerConfigState({ ...bannerConfigState, slides: updated });
         }
@@ -538,7 +542,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handlePromoImageUpload = async (file: File) => {
     try {
-      const compressed = await compressImageFile(file, 600, 600, 0.75);
+      const compressed = await compressImageFile(file, 500, 500, 0.70);
       setBannerConfigState({
         ...bannerConfigState,
         promoCard: {
@@ -548,13 +552,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     } catch {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         if (e.target?.result) {
+          const raw = e.target.result as string;
+          const compressed = await compressDataUrl(raw, 500, 500, 0.70);
           setBannerConfigState({
             ...bannerConfigState,
             promoCard: {
               ...bannerConfigState.promoCard,
-              image: e.target.result as string,
+              image: compressed,
             },
           });
         }
@@ -608,12 +614,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsProductModalOpen(true);
   };
 
-  const handleSaveProductForm = (e: React.FormEvent) => {
+  const handleSaveProductForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prodFormName.trim()) return;
 
+    // Sanitize and compress any base64 images
+    const compressedImages = await Promise.all(
+      prodFormImages.map(async (img) => {
+        if (img && img.startsWith('data:image/') && img.length > 25000) {
+          try {
+            return await compressDataUrl(img, 600, 600, 0.70);
+          } catch {
+            return img;
+          }
+        }
+        return img;
+      })
+    );
+
     // Filter valid images
-    const validImages = prodFormImages.filter(img => Boolean(img && img.trim()));
+    const validImages = compressedImages.filter(img => Boolean(img && img.trim()));
     const primaryImg = validImages[0] || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80';
     const allImages = validImages.length > 0 ? validImages : [primaryImg];
     const finalSlug = prodFormSlug.trim() || generateSlug(prodFormName);
@@ -640,7 +660,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
         return p;
       });
-      onUpdateProducts(updated);
+      await onUpdateProducts(updated);
+      showToast(`"${prodFormName.trim()}" তথ্য সফলভাবে আপডেট হয়েছে!`);
     } else {
       const newP: Product = {
         id: `prod-${Date.now()}`,
@@ -662,7 +683,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         sizes: prodFormSizes.length > 0 ? prodFormSizes : undefined,
         tags: [prodFormCategory.toLowerCase(), 'new-product'],
       };
-      onUpdateProducts([newP, ...products]);
+      await onUpdateProducts([newP, ...products]);
+      showToast(`নতুন প্রোডাক্ট "${newP.name}" ক্লাউড ডাটাবেজে সফলভাবে যোগ করা হয়েছে!`);
     }
     setIsProductModalOpen(false);
   };
