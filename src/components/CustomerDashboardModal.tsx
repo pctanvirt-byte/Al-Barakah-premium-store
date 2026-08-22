@@ -24,6 +24,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { Order, Product } from '../types';
 import { fetchApi } from '../api/client';
+import { getFilteredOrders } from '../services/firebaseService';
 
 export interface UserAddress {
   id: string;
@@ -56,7 +57,7 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
   onOpenOrderTrack
 }) => {
   const { user, profile, isAdmin, signOut } = useAuth();
-  const userEmailLower = user?.email?.toLowerCase().trim() || profile?.email?.toLowerCase().trim();
+  const userEmailLower = user?.email?.toLowerCase().trim() || profile?.email?.toLowerCase().trim() || '';
   const isSuperAdmin = userEmailLower === 'pctanvirt@gmail.com' || userEmailLower === 'albarakahpremium10@gmail.com' || isAdmin || profile?.role === 'admin' || profile?.role === 'super_admin';
   const [activeTab, setActiveTab] = useState<'PROFILE' | 'ORDERS' | 'ADDRESSES' | 'WISHLIST'>('PROFILE');
   
@@ -65,6 +66,10 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
   const [phone, setPhone] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
+
+  // Orders State (Direct Server-Side Query & Real-time Live Sync)
+  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
 
   // Addresses state
   const [addresses, setAddresses] = useState<UserAddress[]>(() => {
@@ -94,11 +99,70 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
     isDefault: false,
   });
 
+  // Extract / populate name and phone from profile, auth, or storage
   useEffect(() => {
     if (profile?.name || user?.displayName) {
       setName(profile?.name || user?.displayName || '');
     }
-  }, [profile, user]);
+
+    let detectedPhone = profile?.phone || '';
+    if (!detectedPhone) {
+      const email = user?.email || profile?.email || '';
+      const match = email.match(/user_(\d+)@/) || email.match(/^(\d+)@/);
+      if (match && match[1]) {
+        detectedPhone = match[1];
+      }
+    }
+    if (!detectedPhone) {
+      try {
+        const stored = localStorage.getItem('albarakah_customer_user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.phone) detectedPhone = parsed.phone;
+        }
+      } catch (e) {}
+    }
+    if (!detectedPhone && addresses.length > 0) {
+      const def = addresses.find(a => a.isDefault) || addresses[0];
+      if (def?.phone && def.phone !== '01700000000') {
+        detectedPhone = def.phone;
+      }
+    }
+    if (detectedPhone) {
+      setPhone(detectedPhone);
+    }
+  }, [profile, user, addresses]);
+
+  // Fetch customer orders using getFilteredOrders sorted by createdAt descending
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    const fetchOrders = async () => {
+      setIsLoadingOrders(true);
+      try {
+        const queryParams = {
+          email: user?.email || profile?.email || '',
+          phone: phone || profile?.phone || '',
+          userId: user?.uid || profile?.id || '',
+        };
+        const fetched = await getFilteredOrders(queryParams);
+        if (isMounted) {
+          setCustomerOrders(fetched);
+        }
+      } catch (err) {
+        console.error('Error fetching customer orders:', err);
+      } finally {
+        if (isMounted) setIsLoadingOrders(false);
+      }
+    };
+
+    fetchOrders();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, user, profile, phone, orders]);
 
   useEffect(() => {
     try {
@@ -108,7 +172,7 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingProfile(true);
     try {
@@ -118,7 +182,22 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
         parsed.name = name;
         parsed.phone = phone;
         localStorage.setItem('albarakah_customer_user', JSON.stringify(parsed));
+      } else {
+        localStorage.setItem('albarakah_customer_user', JSON.stringify({
+          name,
+          phone,
+          email: user?.email || profile?.email || '',
+        }));
       }
+
+      // Re-fetch orders with updated phone immediately
+      const refreshed = await getFilteredOrders({
+        email: user?.email || profile?.email || '',
+        phone: phone,
+        userId: user?.uid || profile?.id || '',
+      });
+      setCustomerOrders(refreshed);
+
       setProfileSuccessMsg('Profile information updated successfully!');
       setTimeout(() => setProfileSuccessMsg(''), 3000);
     } catch (e) {
@@ -182,12 +261,27 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
     })));
   };
 
-  // User's orders
-  const userEmail = (user?.email || profile?.email || '').toLowerCase();
-  const userOrders = orders.filter(o => 
-    (o.customerEmail && o.customerEmail.toLowerCase() === userEmail) ||
-    (o.customer?.email && o.customer.email.toLowerCase() === userEmail)
-  );
+  // Robust fallback user's orders calculation from props if live query is empty
+  const userEmail = (user?.email || profile?.email || '').toLowerCase().trim();
+  const cleanUserPhone = (phone || profile?.phone || '').replace(/\D/g, '').slice(-10);
+
+  const fallbackOrders = orders.filter(o => {
+    if (user?.uid && o.userId === user.uid) return true;
+    const oEmail = (o.customerEmail || o.customer?.email || '').toLowerCase().trim();
+    if (userEmail && oEmail) {
+      if (oEmail === userEmail) return true;
+      if (oEmail.replace('user_', '') === userEmail.replace('user_', '')) return true;
+    }
+    const oPhone = (o.customerPhone || o.customer?.phone || '').replace(/\D/g, '').slice(-10);
+    if (cleanUserPhone && oPhone && oPhone === cleanUserPhone) return true;
+    return false;
+  }).sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  const displayOrders = customerOrders.length > 0 ? customerOrders : fallbackOrders;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -250,7 +344,7 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>My Orders ({userOrders.length})</span>
+            <span>My Orders ({displayOrders.length})</span>
           </button>
 
           <button
@@ -362,7 +456,12 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
           {/* TAB 2: MY ORDERS */}
           {activeTab === 'ORDERS' && (
             <div className="space-y-4">
-              {userOrders.length === 0 ? (
+              {isLoadingOrders && displayOrders.length === 0 ? (
+                <div className="text-center py-12 bg-white border border-stone-200 rounded-2xl p-8 space-y-3">
+                  <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-xs text-stone-500 font-medium">লোড হচ্ছে... আপনার পূর্বের অর্ডার তালিকা নিয়ে আসা হচ্ছে...</p>
+                </div>
+              ) : displayOrders.length === 0 ? (
                 <div className="text-center py-12 bg-white border border-stone-200 rounded-2xl p-8">
                   <ShoppingBag className="w-12 h-12 text-stone-300 mx-auto mb-3" />
                   <h3 className="text-sm font-bold text-stone-800">No orders placed yet</h3>
@@ -372,7 +471,7 @@ export const CustomerDashboardModal: React.FC<CustomerDashboardModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {userOrders.map((order) => {
+                  {displayOrders.map((order) => {
                     const trackingId = order.trackingCode || order.id;
                     const status = order.orderStatus || order.status || 'PENDING';
                     const amount = order.totalAmount || order.total || 0;

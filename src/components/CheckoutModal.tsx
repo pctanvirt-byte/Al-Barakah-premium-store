@@ -129,6 +129,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Lock background body scroll completely when checkout modal is open
   useEffect(() => {
     if (isOpen) {
+      setOrderSuccess(null);
+      setErrorMessage('');
+      setIsSubmitting(false);
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
@@ -138,6 +141,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleCloseModal = () => {
+    setOrderSuccess(null);
+    setErrorMessage('');
+    setIsSubmitting(false);
+    onClose();
+  };
 
   const handleDeliverySelect = (type: 'inside' | 'outside' | 'sub_dhaka') => {
     setSelectedZone(type);
@@ -190,6 +200,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     const generatedOrderId = `AB-${Math.floor(100000 + Math.random() * 900000)}`;
     const fullPhone = cleanPhone.startsWith('880') ? `+${cleanPhone}` : `+880${cleanPhone.replace(/^0/, '')}`;
+    const userAccEmail = currentUser?.email || `${cleanPhone}@albarakah.store`;
 
     const advanceType: 'DELIVERY_ONLY' | 'FULL_PAYMENT' | 'NONE' = 
       paymentMethod === 'ADVANCE_DELIVERY' ? 'DELIVERY_ONLY' : 
@@ -223,9 +234,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       advanceAmount: advancePayableAmount,
       dueAmountOnDelivery: duePayableOnDelivery,
       deliveryPaymentStatus: deliveryStatus,
+      userId: currentUser?.id || undefined,
+      customerEmail: userAccEmail.toLowerCase(),
+      customerPhone: fullPhone,
       customer: {
         fullName: formData.fullName,
-        email: `${cleanPhone}@albarakah.store`,
+        email: userAccEmail.toLowerCase(),
         phone: fullPhone,
         address: formData.address,
         city: formData.cityDistrict,
@@ -253,7 +267,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       <header className="sticky top-0 z-40 bg-white border-b border-stone-200 shadow-xs px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleCloseModal}
           className="flex items-center gap-2 text-stone-700 hover:text-stone-950 font-bold text-xs sm:text-sm bg-stone-100 hover:bg-stone-200 px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-xs"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -267,7 +281,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </span>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseModal}
             className="w-10 h-10 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center transition-colors cursor-pointer"
             aria-label="Close"
           >
@@ -351,7 +365,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="w-full py-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-2xl shadow-md transition-all cursor-pointer text-sm sm:text-base"
             >
               Continue Shopping

@@ -190,6 +190,56 @@ export const deleteOrderFromDb = async (orderId: string): Promise<void> => {
   }
 };
 
+export const getFilteredOrders = async (userIdentifier?: {
+  email?: string;
+  phone?: string;
+  userId?: string;
+}): Promise<Order[]> => {
+  try {
+    const ordersCol = collection(db, ORDERS_COLLECTION);
+    const snap = await getDocs(ordersCol);
+    const allOrders: Order[] = [];
+    snap.forEach((docSnap) => {
+      allOrders.push({ ...(docSnap.data() as Order), id: docSnap.id });
+    });
+
+    // Server-side sorted by createdAt descending
+    allOrders.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    if (!userIdentifier) return allOrders;
+
+    const targetEmail = (userIdentifier.email || '').toLowerCase().trim();
+    const targetPhoneDigits = (userIdentifier.phone || '').replace(/\D/g, '').slice(-10);
+    const targetUserId = userIdentifier.userId || '';
+
+    return allOrders.filter((o) => {
+      if (targetUserId && o.userId && o.userId === targetUserId) return true;
+
+      const oEmail = (o.customerEmail || o.customer?.email || '').toLowerCase().trim();
+      if (targetEmail && oEmail) {
+        if (oEmail === targetEmail) return true;
+        const cleanOEmail = oEmail.replace('user_', '');
+        const cleanTargetEmail = targetEmail.replace('user_', '');
+        if (cleanOEmail === cleanTargetEmail) return true;
+      }
+
+      const oPhoneDigits = (o.customerPhone || o.customer?.phone || '').replace(/\D/g, '').slice(-10);
+      if (targetPhoneDigits && oPhoneDigits && oPhoneDigits === targetPhoneDigits) {
+        return true;
+      }
+
+      return false;
+    });
+  } catch (err) {
+    console.error('Error fetching filtered orders:', err);
+    return [];
+  }
+};
+
 // --- REVIEWS ---
 export const subscribeToReviews = (callback: (reviews: ProductReview[]) => void, maxLimit = 150) => {
   const q = query(collection(db, REVIEWS_COLLECTION), limit(maxLimit));

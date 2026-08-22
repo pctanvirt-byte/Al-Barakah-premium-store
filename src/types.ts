@@ -180,6 +180,7 @@ export const DEFAULT_DELIVERY_CONFIG: DeliveryConfig = {
 
 export interface Order {
   id: string;
+  userId?: string;
   trackingCode?: string;
   customerName?: string;
   customerEmail?: string;
