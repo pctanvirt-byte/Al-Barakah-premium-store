@@ -145,7 +145,7 @@ export default function App() {
   
   // --- Persistent & Real-Time Cloud Synced States ---
   const [categories, setCategories] = useState<CategoryItem[]>(INITIAL_CATEGORIES);
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
