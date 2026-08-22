@@ -48,6 +48,7 @@ import {
   subscribeToStoreSettings,
   saveStoreSettingsToDb
 } from './services/firebaseService';
+import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { Navbar } from './components/Navbar';
 import { HeroBanner, DEFAULT_HERO_CONFIG } from './components/HeroBanner';
 import { CategorySlider } from './components/CategorySlider';
@@ -238,6 +239,16 @@ export default function App() {
   useEffect(() => {
     initFacebookPixel(facebookPixelConfig);
   }, [facebookPixelConfig]);
+
+  // --- Initial Mount Loading State (1.5s Shimmer Skeleton for smooth Firestore sync) ---
+  const [isInitialMountLoading, setIsInitialMountLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialMountLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // --- Modals State ---
   const [activePageView, setActivePageView] = useState<'CATALOG' | 'CART' | 'TRACK' | 'LOGIN' | 'WISHLIST'>('CATALOG');
@@ -1166,59 +1177,63 @@ export default function App() {
 
       {activePageView === 'CATALOG' && (
         <>
-          {/* Hero Section (only when on 'All' or no active text search) */}
-          {!filters.searchQuery && filters.category === 'All' && (
-            <HeroBanner
-              config={heroBannerConfig}
-              onNavigate={(targetType, targetValue) => {
-                if (targetType === 'category') {
-                  setFilters((prev) => ({ ...prev, category: targetValue, searchQuery: '' }));
-                  setActivePageView('CATALOG');
-                  const catEl = document.getElementById('catalog-section');
-                  if (catEl) catEl.scrollIntoView({ behavior: 'smooth' });
-                } else if (targetType === 'product') {
-                  const found = products.find((p) => p.id === targetValue || p.name === targetValue);
-                  if (found) {
-                    setSelectedProduct(found);
-                  } else {
-                    setActivePageView('CATALOG');
-                  }
-                } else {
-                  setFilters((prev) => ({ ...prev, category: 'All', searchQuery: '' }));
-                  setActivePageView('CATALOG');
-                }
-              }}
-              onOpenProductModal={(p) => setSelectedProduct(p)}
-              products={products}
-              currency={currency}
-            />
-          )}
+          {isInitialMountLoading ? (
+            <LoadingSkeleton />
+          ) : (
+            <>
+              {/* Hero Section (only when on 'All' or no active text search) */}
+              {!filters.searchQuery && filters.category === 'All' && (
+                <HeroBanner
+                  config={heroBannerConfig}
+                  onNavigate={(targetType, targetValue) => {
+                    if (targetType === 'category') {
+                      setFilters((prev) => ({ ...prev, category: targetValue, searchQuery: '' }));
+                      setActivePageView('CATALOG');
+                      const catEl = document.getElementById('catalog-section');
+                      if (catEl) catEl.scrollIntoView({ behavior: 'smooth' });
+                    } else if (targetType === 'product') {
+                      const found = products.find((p) => p.id === targetValue || p.name === targetValue);
+                      if (found) {
+                        setSelectedProduct(found);
+                      } else {
+                        setActivePageView('CATALOG');
+                      }
+                    } else {
+                      setFilters((prev) => ({ ...prev, category: 'All', searchQuery: '' }));
+                      setActivePageView('CATALOG');
+                    }
+                  }}
+                  onOpenProductModal={(p) => setSelectedProduct(p)}
+                  products={products}
+                  currency={currency}
+                />
+              )}
 
-      {/* Featured Categories Carousel Slider (matching user requested flow & screenshot) */}
-      {!filters.searchQuery && (
-        <CategorySlider
-          categories={categories}
-          selectedCategory={filters.category}
-          onSelectCategory={(cat) => setFilters((prev) => ({ ...prev, category: cat }))}
-          onOpenAdmin={() => setIsAdminCategoryOpen(true)}
-        />
-      )}
+              {/* Featured Categories Carousel Slider (matching user requested flow & screenshot) */}
+              {!filters.searchQuery && (
+                <CategorySlider
+                  categories={categories}
+                  selectedCategory={filters.category}
+                  onSelectCategory={(cat) => setFilters((prev) => ({ ...prev, category: cat }))}
+                  onOpenAdmin={() => setIsAdminCategoryOpen(true)}
+                />
+              )}
 
-      {/* Top Selling Products Section (Placed directly below CategorySlider in Ghorer Bazar style) */}
-      {!filters.searchQuery && filters.category === 'All' && topSellingConfig.enabled && (
-        <TopSellingSection
-          config={topSellingConfig}
-          products={products}
-          compareProducts={compareProducts}
-          onToggleCompare={handleToggleCompare}
-          onAddToCart={(p, qty) => handleAddToCart(p, qty || 1)}
-          onBuyNow={(p, qty) => handleBuyNow(p, qty || 1)}
-          onOpenProductModal={(p) => setSelectedProduct(p)}
-        />
-      )}
+              {/* Top Selling Products Section (Placed directly below CategorySlider in Ghorer Bazar style) */}
+              {!filters.searchQuery && filters.category === 'All' && topSellingConfig.enabled && (
+                <TopSellingSection
+                  config={topSellingConfig}
+                  products={products}
+                  compareProducts={compareProducts}
+                  onToggleCompare={handleToggleCompare}
+                  onAddToCart={(p, qty) => handleAddToCart(p, qty || 1)}
+                  onBuyNow={(p, qty) => handleBuyNow(p, qty || 1)}
+                  onOpenProductModal={(p) => setSelectedProduct(p)}
+                />
+              )}
 
-      {/* Main Content Area: Clean Ghorer Bazar Full-Width Product Grid */}
-      <main id="catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+              {/* Main Content Area: Clean Ghorer Bazar Full-Width Product Grid */}
+              <main id="catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
         {/* Section Header & Sort controls (shown when filtering by category or searching) */}
         {(filters.category !== 'All' || filters.searchQuery) && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 border-b border-stone-200/80">
@@ -1440,6 +1455,8 @@ export default function App() {
           )}
         </div>
       </main>
+            </>
+          )}
         </>
       )}
 
