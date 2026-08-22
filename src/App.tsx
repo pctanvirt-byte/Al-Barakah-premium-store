@@ -240,13 +240,20 @@ export default function App() {
     initFacebookPixel(facebookPixelConfig);
   }, [facebookPixelConfig]);
 
-  // --- Initial Mount Loading State (1.5s Shimmer Skeleton for smooth Firestore sync) ---
-  const [isInitialMountLoading, setIsInitialMountLoading] = useState(true);
+  // --- Real-Time Firestore Loading Readiness ---
+  const [isProductsLoaded, setIsProductsLoaded] = useState(false);
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
+  const isInitialMountLoading = useMemo(() => {
+    return !isProductsLoaded || !isSettingsLoaded;
+  }, [isProductsLoaded, isSettingsLoaded]);
+
+  // Fail-safe unlock after 3 seconds in case of offline/network issues
+  const [forceUnlock, setForceUnlock] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIsInitialMountLoading(false);
-    }, 1500);
+      setForceUnlock(true);
+    }, 3000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -317,6 +324,7 @@ export default function App() {
       if (Array.isArray(liveProducts)) {
         setProducts(liveProducts);
       }
+      setIsProductsLoaded(true);
     });
 
     // 2. Subscribe to Live Categories
@@ -396,6 +404,7 @@ export default function App() {
           gateway: { ...prev.gateway, ...(settings.bkashConfig?.gateway || {}) },
         }));
       }
+      setIsSettingsLoaded(true);
     });
 
     return () => {
@@ -1177,7 +1186,7 @@ export default function App() {
 
       {activePageView === 'CATALOG' && (
         <>
-          {isInitialMountLoading ? (
+          {(isInitialMountLoading && !forceUnlock) ? (
             <LoadingSkeleton />
           ) : (
             <>
