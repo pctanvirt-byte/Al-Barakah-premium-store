@@ -10,19 +10,70 @@ import {
   orderBy,
   where,
   getDoc,
+  getDocFromServer,
   limit
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 import { Product, Order, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, FacebookPixelConfig, BKashPaymentConfig } from '../types';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { compressDataUrl } from '../utils/imageCompressor';
 
-// Collections
+// Verified Collections
 const PRODUCTS_COLLECTION = 'products';
 const ORDERS_COLLECTION = 'orders';
 const CATEGORIES_COLLECTION = 'categories';
 const REVIEWS_COLLECTION = 'reviews';
 const SETTINGS_COLLECTION = 'settings';
+
+// --- FIRESTORE CONNECTIVITY TEST ---
+export interface FirestoreConnectionStatus {
+  connected: boolean;
+  status: 'connected' | 'checking' | 'error';
+  databaseId: string;
+  projectId: string;
+  latencyMs?: number;
+  message?: string;
+  testedAt?: string;
+}
+
+/**
+ * Runs a direct server ping against the configured Firestore instance to verify live connectivity
+ */
+export const testFirestoreConnection = async (): Promise<FirestoreConnectionStatus> => {
+  const start = Date.now();
+  const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
+  const projId = firebaseConfig.projectId || 'sodium-circle-3dw25';
+
+  try {
+    const pingRef = doc(db, SETTINGS_COLLECTION, 'general');
+    await getDocFromServer(pingRef);
+    const latency = Date.now() - start;
+    return {
+      connected: true,
+      status: 'connected',
+      databaseId: dbId,
+      projectId: projId,
+      latencyMs: latency,
+      message: `কানেক্টেড (Latency: ${latency}ms)`,
+      testedAt: new Date().toLocaleTimeString(),
+    };
+  } catch (error: any) {
+    const latency = Date.now() - start;
+    const msg = error instanceof Error ? error.message : String(error);
+    const isOffline = msg.toLowerCase().includes('client is offline') || msg.toLowerCase().includes('unavailable');
+    
+    return {
+      connected: !isOffline,
+      status: isOffline ? 'error' : 'connected',
+      databaseId: dbId,
+      projectId: projId,
+      latencyMs: latency,
+      message: isOffline ? `অফলাইন / কানেকশন ত্রুটি` : `সক্রিয় (${latency}ms)`,
+      testedAt: new Date().toLocaleTimeString(),
+    };
+  }
+};
 
 // --- SANITIZATION HELPERS ---
 export const removeUndefinedFields = <T>(obj: T): T => {
@@ -105,10 +156,21 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, max
       snapshot.forEach((docSnap) => {
         items.push({ ...(docSnap.data() as Product), id: docSnap.id });
       });
+      if (items.length > 0) {
+        try {
+          localStorage.setItem('albarakah_backup_products', JSON.stringify(items));
+        } catch (e) {}
+      }
       callback(items);
     },
     (err) => {
       console.warn('Products Firestore snapshot warning:', err);
+      try {
+        const cached = localStorage.getItem('albarakah_backup_products');
+        if (cached) {
+          callback(JSON.parse(cached));
+        }
+      } catch (e) {}
     }
   );
 };
@@ -119,14 +181,41 @@ export const saveProductToDb = async (product: Product): Promise<void> => {
     const cleaned = removeUndefinedFields(sanitized);
     const docRef = doc(db, PRODUCTS_COLLECTION, cleaned.id);
     await setDoc(docRef, cleaned, { merge: true });
+
+    // Update local mirror
+    try {
+      const cached = localStorage.getItem('albarakah_backup_products');
+      const list: Product[] = cached ? JSON.parse(cached) : [];
+      const idx = list.findIndex(p => p.id === cleaned.id);
+      if (idx >= 0) {
+        list[idx] = cleaned;
+      } else {
+        list.unshift(cleaned);
+      }
+      localStorage.setItem('albarakah_backup_products', JSON.stringify(list));
+    } catch (e) {}
   } catch (err) {
     console.error('Error saving product to DB:', err);
   }
 };
 
 export const deleteProductFromDb = async (productId: string): Promise<void> => {
-  const docRef = doc(db, PRODUCTS_COLLECTION, productId);
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, PRODUCTS_COLLECTION, productId);
+    await deleteDoc(docRef);
+
+    // Update local mirror
+    try {
+      const cached = localStorage.getItem('albarakah_backup_products');
+      if (cached) {
+        const list: Product[] = JSON.parse(cached);
+        const filtered = list.filter(p => p.id !== productId);
+        localStorage.setItem('albarakah_backup_products', JSON.stringify(filtered));
+      }
+    } catch (e) {}
+  } catch (err) {
+    console.error('Error deleting product from DB:', err);
+  }
 };
 
 export const seedInitialProductsIfEmpty = async (initialProducts: Product[]): Promise<void> => {
@@ -152,10 +241,21 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void, maxLimit 
       snapshot.forEach((docSnap) => {
         list.push({ ...(docSnap.data() as Order), id: docSnap.id });
       });
+      if (list.length > 0) {
+        try {
+          localStorage.setItem('albarakah_backup_orders', JSON.stringify(list));
+        } catch (e) {}
+      }
       callback(list);
     },
     (err) => {
       console.warn('Orders Firestore snapshot warning:', err);
+      try {
+        const cached = localStorage.getItem('albarakah_backup_orders');
+        if (cached) {
+          callback(JSON.parse(cached));
+        }
+      } catch (e) {}
     }
   );
 };
@@ -165,6 +265,19 @@ export const saveOrderToDb = async (order: Order): Promise<void> => {
     const docRef = doc(db, ORDERS_COLLECTION, order.id);
     const cleanedOrder = removeUndefinedFields(order);
     await setDoc(docRef, cleanedOrder, { merge: true });
+
+    // Update local mirror
+    try {
+      const cached = localStorage.getItem('albarakah_backup_orders');
+      const list: Order[] = cached ? JSON.parse(cached) : [];
+      const idx = list.findIndex(o => o.id === cleanedOrder.id);
+      if (idx >= 0) {
+        list[idx] = cleanedOrder;
+      } else {
+        list.unshift(cleanedOrder);
+      }
+      localStorage.setItem('albarakah_backup_orders', JSON.stringify(list));
+    } catch (e) {}
   } catch (err) {
     console.error('Error saving order to DB:', err);
   }
@@ -250,10 +363,21 @@ export const subscribeToReviews = (callback: (reviews: ProductReview[]) => void,
       snapshot.forEach((docSnap) => {
         revs.push({ ...(docSnap.data() as ProductReview), id: docSnap.id });
       });
+      if (revs.length > 0) {
+        try {
+          localStorage.setItem('albarakah_backup_reviews', JSON.stringify(revs));
+        } catch (e) {}
+      }
       callback(revs);
     },
     (err) => {
       console.warn('Reviews Firestore snapshot warning:', err);
+      try {
+        const cached = localStorage.getItem('albarakah_backup_reviews');
+        if (cached) {
+          callback(JSON.parse(cached));
+        }
+      } catch (e) {}
     }
   );
 };
@@ -263,14 +387,39 @@ export const saveReviewToDb = async (review: ProductReview): Promise<void> => {
     const docRef = doc(db, REVIEWS_COLLECTION, review.id);
     const cleanedReview = removeUndefinedFields(review);
     await setDoc(docRef, cleanedReview, { merge: true });
+
+    try {
+      const cached = localStorage.getItem('albarakah_backup_reviews');
+      const list: ProductReview[] = cached ? JSON.parse(cached) : [];
+      const idx = list.findIndex(r => r.id === cleanedReview.id);
+      if (idx >= 0) {
+        list[idx] = cleanedReview;
+      } else {
+        list.unshift(cleanedReview);
+      }
+      localStorage.setItem('albarakah_backup_reviews', JSON.stringify(list));
+    } catch (e) {}
   } catch (err) {
     console.error('Error saving review to DB:', err);
   }
 };
 
 export const deleteReviewFromDb = async (reviewId: string): Promise<void> => {
-  const docRef = doc(db, REVIEWS_COLLECTION, reviewId);
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, REVIEWS_COLLECTION, reviewId);
+    await deleteDoc(docRef);
+
+    try {
+      const cached = localStorage.getItem('albarakah_backup_reviews');
+      if (cached) {
+        const list: ProductReview[] = JSON.parse(cached);
+        const filtered = list.filter(r => r.id !== reviewId);
+        localStorage.setItem('albarakah_backup_reviews', JSON.stringify(filtered));
+      }
+    } catch (e) {}
+  } catch (err) {
+    console.error('Error deleting review from DB:', err);
+  }
 };
 
 export const seedInitialReviewsIfEmpty = async (initialReviews: ProductReview[]): Promise<void> => {
@@ -298,10 +447,21 @@ export const subscribeToCategories = (callback: (categories: CategoryItem[]) => 
       });
       // Sort by order property to strictly maintain user reordered sequence
       cats.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+      if (cats.length > 0) {
+        try {
+          localStorage.setItem('albarakah_backup_categories', JSON.stringify(cats));
+        } catch (e) {}
+      }
       callback(cats);
     },
     (err) => {
       console.warn('Categories Firestore snapshot warning:', err);
+      try {
+        const cached = localStorage.getItem('albarakah_backup_categories');
+        if (cached) {
+          callback(JSON.parse(cached));
+        }
+      } catch (e) {}
     }
   );
 };
@@ -312,14 +472,39 @@ export const saveCategoryToDb = async (category: CategoryItem): Promise<void> =>
     const cleaned = removeUndefinedFields(sanitized);
     const docRef = doc(db, CATEGORIES_COLLECTION, cleaned.id);
     await setDoc(docRef, cleaned, { merge: true });
+
+    try {
+      const cached = localStorage.getItem('albarakah_backup_categories');
+      const list: CategoryItem[] = cached ? JSON.parse(cached) : [];
+      const idx = list.findIndex(c => c.id === cleaned.id);
+      if (idx >= 0) {
+        list[idx] = cleaned;
+      } else {
+        list.push(cleaned);
+      }
+      localStorage.setItem('albarakah_backup_categories', JSON.stringify(list));
+    } catch (e) {}
   } catch (err) {
     console.error('Error saving category to DB:', err);
   }
 };
 
 export const deleteCategoryFromDb = async (categoryId: string): Promise<void> => {
-  const docRef = doc(db, CATEGORIES_COLLECTION, categoryId);
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, CATEGORIES_COLLECTION, categoryId);
+    await deleteDoc(docRef);
+
+    try {
+      const cached = localStorage.getItem('albarakah_backup_categories');
+      if (cached) {
+        const list: CategoryItem[] = JSON.parse(cached);
+        const filtered = list.filter(c => c.id !== categoryId);
+        localStorage.setItem('albarakah_backup_categories', JSON.stringify(filtered));
+      }
+    } catch (e) {}
+  } catch (err) {
+    console.error('Error deleting category from DB:', err);
+  }
 };
 
 export const seedInitialCategoriesIfEmpty = async (initialCategories: CategoryItem[]): Promise<void> => {
@@ -352,11 +537,21 @@ export const subscribeToStoreSettings = (
     docRef,
     (docSnap) => {
       if (docSnap.exists()) {
-        callback(docSnap.data() as any);
+        const data = docSnap.data() as any;
+        try {
+          localStorage.setItem('albarakah_backup_settings', JSON.stringify(data));
+        } catch (e) {}
+        callback(data);
       }
     },
     (err) => {
       console.warn('Settings snapshot warning:', err);
+      try {
+        const cached = localStorage.getItem('albarakah_backup_settings');
+        if (cached) {
+          callback(JSON.parse(cached));
+        }
+      } catch (e) {}
     }
   );
 };
@@ -374,6 +569,10 @@ export const saveStoreSettingsToDb = async (settings: {
     const docRef = doc(db, SETTINGS_COLLECTION, 'general');
     const cleanedSettings = removeUndefinedFields(settings);
     await setDoc(docRef, cleanedSettings, { merge: true });
+
+    try {
+      localStorage.setItem('albarakah_backup_settings', JSON.stringify(cleanedSettings));
+    } catch (e) {}
   } catch (err) {
     console.error('Error saving store settings to DB:', err);
     throw err;

@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Store product item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "image": { "type": "string" }
+      },
+      "required": ["id", "name", "price"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Store order item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "total": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "total"]
+    },
+    "CategoryItem": {
+      "title": "CategoryItem",
+      "description": "Product category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "ProductReview": {
+      "title": "ProductReview",
+      "description": "Customer product review",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" }
+      },
+      "required": ["id", "rating"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "General store settings",
+      "type": "object",
+      "properties": {
+        "heroBanners": { "type": "object" },
+        "topSelling": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "E-commerce products catalog"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders collection"
+    },
+    "/categories/{categoryId}": {
+      "schema": "CategoryItem",
+      "description": "Product categories navigation"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "ProductReview",
+      "description": "Customer reviews collection"
+    },
+    "/settings/{settingId}": {
+      "schema": "StoreSettings",
+      "description": "General store configurations"
+    }
+  }
+}

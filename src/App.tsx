@@ -145,9 +145,38 @@ export default function App() {
   const { user, profile, isAdmin, openAuthModal, signOut } = useAuth();
   
   // --- Persistent & Real-Time Cloud Synced States ---
-  const [categories, setCategories] = useState<CategoryItem[]>(INITIAL_CATEGORIES);
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('albarakah_backup_categories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_CATEGORIES;
+  });
+
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const saved = localStorage.getItem('albarakah_backup_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_PRODUCTS;
+  });
+
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const saved = localStorage.getItem('albarakah_backup_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem('albarakah_premium_cart');

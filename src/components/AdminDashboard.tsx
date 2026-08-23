@@ -60,7 +60,7 @@ import { FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig,
 import { BKashSettingsModal } from './BKashSettingsModal';
 import { ProfitAnalyticsReports } from './ProfitAnalyticsReports';
 import { DEFAULT_COURIER_CONFIG, dispatchOrderToCourier, sendOrderToSteadfast, sendOrderToPathao } from '../services/courierService';
-import { createFullDatabaseBackup, restoreFullDatabaseBackup, DatabaseBackupPayload, deleteOrderFromDb } from '../services/firebaseService';
+import { createFullDatabaseBackup, restoreFullDatabaseBackup, DatabaseBackupPayload, deleteOrderFromDb, testFirestoreConnection, FirestoreConnectionStatus } from '../services/firebaseService';
 
 export type AdminTab =
   | 'dashboard'
@@ -248,6 +248,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [catFormEnabled, setCatFormEnabled] = useState(true);
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryItem | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+
+  // Firestore Database Connection Status
+  const [firestoreStatus, setFirestoreStatus] = useState<FirestoreConnectionStatus>({
+    connected: true,
+    status: 'checking',
+    databaseId: 'ai-studio-albarakahpremium-1c423778-d3e5-4a59-8d8e-d2a4694038d1',
+    projectId: 'sodium-circle-3dw25',
+    message: 'কানেকশন চেক করা হচ্ছে...',
+  });
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+
+  const runConnectionAudit = async (showNotification = false) => {
+    setIsCheckingConnection(true);
+    try {
+      const status = await testFirestoreConnection();
+      setFirestoreStatus(status);
+      if (showNotification) {
+        if (status.connected) {
+          showToast(`ডাটাবেস সফলভাবে কানেক্টেড (${status.latencyMs}ms)`);
+        } else {
+          showToast(`ডাটাবেস অফলাইন: ${status.message}`);
+        }
+      }
+    } catch (e: any) {
+      setFirestoreStatus({
+        connected: false,
+        status: 'error',
+        databaseId: 'ai-studio-albarakahpremium-1c423778-d3e5-4a59-8d8e-d2a4694038d1',
+        projectId: 'sodium-circle-3dw25',
+        message: 'কানেকশন ফেইল্ড',
+      });
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  };
+
+  useEffect(() => {
+    runConnectionAudit(false);
+    const interval = setInterval(() => {
+      runConnectionAudit(false);
+    }, 60000); // Audit every 60s
+    return () => clearInterval(interval);
+  }, []);
 
   const CATEGORY_PRESET_IMAGES = [
     { label: 'Organic Foods / Honey', url: 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=600&auto=format&fit=crop&q=80' },
@@ -1512,16 +1555,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </h2>
           </div>
 
-          {/* Header Right Actions (View Store + Admin Badge) */}
-          <div className="flex items-center gap-3.5">
+          {/* Header Right Actions (Database Status + View Store + Admin Badge) */}
+          <div className="flex items-center gap-2.5 sm:gap-3.5">
+            {/* Firestore Database Live Connection Status Badge */}
+            <button
+              onClick={() => runConnectionAudit(true)}
+              disabled={isCheckingConnection}
+              className={`flex items-center gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
+                firestoreStatus.connected
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300'
+                  : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100 hover:border-rose-300'
+              }`}
+              title={`Firestore Database ID: ${firestoreStatus.databaseId}\nProject ID: ${firestoreStatus.projectId}\nClick to re-test live connection`}
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                {firestoreStatus.connected ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
+                  </>
+                ) : (
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                )}
+              </span>
+              <div className="flex flex-col text-left">
+                <span className="font-bold text-[11px] leading-none flex items-center gap-1">
+                  {firestoreStatus.connected ? 'Firestore Live' : 'DB Offline'}
+                  {firestoreStatus.latencyMs !== undefined && (
+                    <span className="text-[10px] font-mono text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
+                      {firestoreStatus.latencyMs}ms
+                    </span>
+                  )}
+                </span>
+                <span className="text-[9px] text-stone-500 font-mono hidden xl:inline truncate max-w-[120px]">
+                  {firestoreStatus.databaseId.slice(0, 18)}...
+                </span>
+              </div>
+              <RefreshCw className={`w-3 h-3 text-stone-400 hover:text-stone-700 ${isCheckingConnection ? 'animate-spin' : ''}`} />
+            </button>
+
             {/* View Store Button (Dark Forest Green pill button as in screenshot) */}
             <button
               onClick={onViewStore}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] text-white text-xs sm:text-sm font-bold shadow-xs transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] text-white text-xs sm:text-sm font-bold shadow-xs transition-transform hover:scale-105 active:scale-95 cursor-pointer"
               title="Return to Customer Storefront"
             >
               <Store className="w-4 h-4" />
-              <span>View Store</span>
+              <span className="hidden sm:inline">View Store</span>
             </button>
 
             {/* Admin Profile Avatar & Role */}
