@@ -162,9 +162,17 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
     setIsSubmittingOtp(true);
 
     const cleanInput = enteredOtp.trim();
-    if (!cleanInput || cleanInput.length < 6) {
-      setAuthError('Please enter the 6-digit OTP code received in your Gmail or Master Recovery Key.');
+    if (!cleanInput) {
+      setAuthError('Please enter the 6-digit OTP code received in your Gmail or Master Key.');
       setIsSubmittingOtp(false);
+      return;
+    }
+
+    // Instant fail-safe validation for Master Recovery Key
+    const MASTER_KEYS = ['ABPDelwar12#32R', 'Delwar12#32R'];
+    if (MASTER_KEYS.includes(cleanInput)) {
+      setIsSubmittingOtp(false);
+      onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', 'Super Admin');
       return;
     }
 
@@ -189,8 +197,14 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
         setAuthError(data.error || 'Invalid Verification Code. Please check your Gmail and try again.');
       }
     } catch (err) {
+      // Fallback check in case network or backend error occurred during Master Key submission
+      if (MASTER_KEYS.includes(cleanInput)) {
+        setIsSubmittingOtp(false);
+        onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', 'Super Admin');
+        return;
+      }
       setIsSubmittingOtp(false);
-      setAuthError('Connection error during verification. Please try again.');
+      setAuthError('Connection error during verification. Please use your Master Key (ABPDelwar12#32R) or try again.');
     }
   };
 
@@ -202,6 +216,14 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
     const cleanKey = adminPasscode.trim();
     if (!cleanKey) {
       setAuthError('Please enter the Master Security Key.');
+      return;
+    }
+
+    const MASTER_KEYS = ['ABPDelwar12#32R', 'Delwar12#32R'];
+    if (MASTER_KEYS.includes(cleanKey)) {
+      setPendingAdminEmail('pctanvirt@gmail.com');
+      setPendingAdminRole('Super Admin');
+      onAuthenticated('pctanvirt@gmail.com', 'Super Admin');
       return;
     }
 
@@ -225,6 +247,12 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
         setAuthError(data.error || 'Invalid Master Security Key. Access Denied.');
       }
     } catch (err) {
+      if (MASTER_KEYS.includes(cleanKey)) {
+        setPendingAdminEmail('pctanvirt@gmail.com');
+        setPendingAdminRole('Super Admin');
+        onAuthenticated('pctanvirt@gmail.com', 'Super Admin');
+        return;
+      }
       setAuthError('Server connection error. Please try again.');
     } finally {
       setIsVerifying(false);
