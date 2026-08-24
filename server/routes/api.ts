@@ -561,6 +561,39 @@ apiRouter.post('/orders', optionalAuth, async (req: AuthRequest, res) => {
 
     memoryStore.orders.unshift(newOrder);
 
+    // Automatically trigger Order Notification Email in the background
+    try {
+      sendOrderNotificationEmail({
+        id: newOrder.id,
+        trackingCode: newOrder.trackingCode,
+        customerName: newOrder.customerName,
+        customerEmail: newOrder.customerEmail,
+        customerPhone: newOrder.customerPhone,
+        deliveryAddress: newOrder.deliveryAddress,
+        cityDistrict: newOrder.cityDistrict,
+        subtotalAmount: newOrder.subtotalAmount,
+        discountAmount: newOrder.discountAmount,
+        deliveryFee: newOrder.deliveryFee,
+        totalAmount: newOrder.totalAmount,
+        paymentMethod: newOrder.paymentMethod,
+        paymentStatus: newOrder.paymentStatus,
+        items: newOrder.items.map((it) => ({
+          name: it.name,
+          image: it.image,
+          quantity: it.quantity,
+          price: it.unitPrice,
+          selectedColor: it.selectedColor,
+          selectedSize: it.selectedSize,
+        })),
+        notes: newOrder.notes || undefined,
+        createdAt: newOrder.createdAt,
+      }).catch((mailErr) => {
+        console.warn('[ORDER NOTIFICATION] Async mailer warning:', mailErr);
+      });
+    } catch (triggerErr) {
+      console.warn('[ORDER NOTIFICATION] Failed to invoke mailer:', triggerErr);
+    }
+
     res.status(201).json({
       success: true,
       order: {
