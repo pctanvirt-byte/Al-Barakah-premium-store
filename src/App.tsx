@@ -1053,19 +1053,13 @@ export default function App() {
           // Identify any deleted products and delete them from Firestore
           const currentProdIds = new Set(updatedProducts.map((p) => p.id));
           const deletedProds = products.filter((p) => !currentProdIds.has(p.id));
-          for (const delProd of deletedProds) {
-            await deleteProductFromDb(delProd.id);
-          }
-
+          
           setProducts(updatedProducts);
-          // Persist updated or new products to Firestore in parallel
-          if (Array.isArray(updatedProducts)) {
-            await Promise.all(
-              updatedProducts.map((p) =>
-                saveProductToDb(p).catch((err) =>
-                  console.error('Product Firestore save error:', err)
-                )
-              )
+
+          // Delete removed products from Firestore
+          for (const delProd of deletedProds) {
+            deleteProductFromDb(delProd.id).catch((err) =>
+              console.error('Firestore delete product error:', err)
             );
           }
         }}

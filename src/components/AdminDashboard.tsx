@@ -1059,16 +1059,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const targetId = productToDelete.id;
     const deletedName = productToDelete.name;
 
+    // Immediately close modal and update state to prevent UI freezing
+    setProductToDelete(null);
+    const updated = products.filter((p) => p.id !== targetId);
+    onUpdateProducts(updated);
+    showToast(`"${deletedName}" ফায়ারবেস ডাটাবেজ থেকে স্থায়ীভাবে ডিলিট করা হয়েছে!`);
+
     try {
       await deleteProductFromDb(targetId);
     } catch (err) {
       console.error('Direct deleteProductFromDb error:', err);
     }
-
-    const updated = products.filter((p) => p.id !== targetId);
-    await onUpdateProducts(updated);
-    setProductToDelete(null);
-    showToast(`"${deletedName}" ফায়ারবেস ডাটাবেজ থেকে স্থায়ীভাবে ডিলিট করা হয়েছে!`);
   };
 
   const handleConfirmDeleteOrder = async () => {
