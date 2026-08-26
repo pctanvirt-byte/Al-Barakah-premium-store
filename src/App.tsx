@@ -32,7 +32,6 @@ import {
   subscribeToProducts,
   saveProductToDb,
   deleteProductFromDb,
-  seedInitialProductsIfEmpty,
   subscribeToOrders,
   saveOrderToDb,
   deleteOrderFromDb,
@@ -40,11 +39,9 @@ import {
   subscribeToReviews,
   saveReviewToDb,
   deleteReviewFromDb,
-  seedInitialReviewsIfEmpty,
   subscribeToCategories,
   saveCategoryToDb,
   deleteCategoryFromDb,
-  seedInitialCategoriesIfEmpty,
   subscribeToStoreSettings,
   saveStoreSettingsToDb
 } from './services/firebaseService';
@@ -347,10 +344,8 @@ export default function App() {
       }
     }
 
-    // Seed default initial data if Firestore collections are empty
-    seedInitialProductsIfEmpty(INITIAL_PRODUCTS);
-    seedInitialCategoriesIfEmpty(INITIAL_CATEGORIES);
-    seedInitialReviewsIfEmpty(INITIAL_REVIEWS);
+    // Real-time subscriptions to Firestore DB
+    // (Redundant getDocs auto-seeding removed to preserve daily Firestore free read/write quota)
 
     // 1. Subscribe to Live Products
     const unsubProducts = subscribeToProducts((liveProducts) => {
