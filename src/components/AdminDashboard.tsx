@@ -42,13 +42,16 @@ import {
   Radio,
   ArrowRight,
   Globe,
-  Filter
+  Filter,
+  Crop,
+  ZoomIn
 } from 'lucide-react';
 import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, TopSellingItem, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG } from '../types';
 import { Layers, Flame, Truck, Send, CheckCircle, User, Download, Database, HardDriveDownload, RefreshCw } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { DEFAULT_HERO_CONFIG } from './HeroBanner';
 import { compressImageFile, compressDataUrl } from '../utils/imageCompressor';
+import { ImageCropZoomModal } from './ImageCropZoomModal';
 import { DEFAULT_TOP_SELLING_CONFIG } from '../types/topSelling';
 import { TopSellingAdmin } from './TopSellingAdmin';
 import { TakaIcon } from './TakaIcon';
@@ -233,6 +236,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [customVariantInput, setCustomVariantInput] = useState<string>('');
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [toastNotice, setToastNotice] = useState<string | null>(null);
+
+  // Crop & Zoom Modal state for Admin
+  const [cropModal, setCropModal] = useState<{
+    isOpen: boolean;
+    type: 'product' | 'category';
+    slotIndex?: number;
+    imageSrc: string;
+  }>({
+    isOpen: false,
+    type: 'product',
+    slotIndex: 0,
+    imageSrc: ''
+  });
 
   // Database Backup & Restore state
   const [isExportingBackup, setIsExportingBackup] = useState(false);
@@ -547,24 +563,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .replace(/^-+|-+$/g, '');
   };
 
-  const handleProductImageSlotUpload = async (slotIndex: number, file: File) => {
-    try {
-      const compressed = await compressImageFile(file, 600, 600, 0.70);
+  const handleProductImageSlotUpload = (slotIndex: number, file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setCropModal({
+          isOpen: true,
+          type: 'product',
+          slotIndex,
+          imageSrc: e.target.result as string
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropApply = (croppedDataUrl: string) => {
+    if (cropModal.type === 'product' && cropModal.slotIndex !== undefined) {
       const updated = [...prodFormImages];
-      updated[slotIndex] = compressed;
+      updated[cropModal.slotIndex] = croppedDataUrl;
       setProdFormImages(updated);
-    } catch {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        if (e.target?.result) {
-          const raw = e.target.result as string;
-          const compressed = await compressDataUrl(raw, 600, 600, 0.70);
-          const updated = [...prodFormImages];
-          updated[slotIndex] = compressed;
-          setProdFormImages(updated);
-        }
-      };
-      reader.readAsDataURL(file);
+      showToast('ছবি সফলভাবে ক্রপ ও জুম করে সেট করা হয়েছে!');
+    } else if (cropModal.type === 'category') {
+      setCatFormImage(croppedDataUrl);
+      showToast('ক্যাটাগরি ছবি সফলভাবে ক্রপ ও জুম করে সেট করা হয়েছে!');
     }
   };
 
@@ -5747,34 +5769,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
 
                             {/* Image Preview Box */}
-                            <div className="w-full h-24 rounded-lg bg-white border border-stone-200 flex items-center justify-center overflow-hidden">
+                            <div className="relative w-full h-24 rounded-lg bg-white border border-stone-200 flex items-center justify-center overflow-hidden group">
                               {imgUrl ? (
-                                <img
-                                  src={imgUrl}
-                                  alt={`Slot ${slotIdx + 1}`}
-                                  className="w-full h-full object-contain mix-blend-multiply"
-                                  referrerPolicy="no-referrer"
-                                />
+                                <>
+                                  <img
+                                    src={imgUrl}
+                                    alt={`Slot ${slotIdx + 1}`}
+                                    className="w-full h-full object-contain mix-blend-multiply"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCropModal({
+                                        isOpen: true,
+                                        type: 'product',
+                                        slotIndex: slotIdx,
+                                        imageSrc: imgUrl
+                                      });
+                                    }}
+                                    className="absolute inset-0 bg-stone-950/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 text-[10px] font-bold transition-opacity cursor-pointer backdrop-blur-2xs"
+                                    title="জুম ও ক্রপ করুন"
+                                  >
+                                    <Crop className="w-3 h-3 text-emerald-400" />
+                                    <span>জুম / ক্রপ</span>
+                                  </button>
+                                </>
                               ) : (
                                 <span className="text-[10px] text-stone-400 font-medium">ছবি নেই</span>
                               )}
                             </div>
 
-                            {/* Upload from Device Button */}
-                            <label className="flex items-center justify-center gap-1 w-full py-1.5 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] font-bold cursor-pointer transition-colors">
-                              <Upload className="w-3 h-3" />
-                              <span>আপলোড</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  if (e.target.files && e.target.files[0]) {
-                                    handleProductImageSlotUpload(slotIdx, e.target.files[0]);
-                                  }
-                                }}
-                              />
-                            </label>
+                            {/* Upload and Zoom Action Buttons */}
+                            <div className="flex items-center gap-1">
+                              <label className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] font-bold cursor-pointer transition-colors">
+                                <Upload className="w-3 h-3" />
+                                <span>আপলোড</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                      handleProductImageSlotUpload(slotIdx, e.target.files[0]);
+                                    }
+                                  }}
+                                />
+                              </label>
+
+                              {imgUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCropModal({
+                                      isOpen: true,
+                                      type: 'product',
+                                      slotIndex: slotIdx,
+                                      imageSrc: imgUrl
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-lg bg-stone-100 hover:bg-emerald-50 hover:text-emerald-800 border border-stone-200 text-stone-700 cursor-pointer transition-colors"
+                                  title="ছবি জুম ইন/আউট ও ক্রপ করুন"
+                                >
+                                  <ZoomIn className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
 
                             {/* URL input */}
                             <input
@@ -6842,6 +6902,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
           showToast('bKash Payment settings saved successfully!');
         }}
+      />
+
+      {/* Image Crop & Zoom Modal for Admin */}
+      <ImageCropZoomModal
+        isOpen={cropModal.isOpen}
+        imageSrc={cropModal.imageSrc}
+        onClose={() => setCropModal({ ...cropModal, isOpen: false })}
+        onApply={handleCropApply}
+        title={cropModal.type === 'category' ? 'ক্যাটাগরি ছবির সাইজ, জুম ও ক্রপ ঠিক করুন' : 'প্রোডাক্ট ছবির সাইজ, জুম ও ক্রপ ঠিক করুন'}
       />
     </div>
   );

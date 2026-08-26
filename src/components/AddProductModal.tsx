@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { X, PlusCircle, Layers, Upload } from 'lucide-react';
+import { X, PlusCircle, Layers, Upload, Crop, ZoomIn } from 'lucide-react';
 import { Product, Category } from '../types';
 import { CATEGORIES } from '../data/products';
-import { compressImageFile } from '../utils/imageCompressor';
+import { ImageCropZoomModal } from './ImageCropZoomModal';
 
 interface AddProductModalProps {
   isOpen: boolean;
@@ -45,6 +45,17 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [sizes, setSizes] = useState<string[]>([]);
   const [customVariant, setCustomVariant] = useState('');
 
+  // Crop / Zoom Modal state
+  const [cropModal, setCropModal] = useState<{
+    isOpen: boolean;
+    slotIndex: number;
+    imageSrc: string;
+  }>({
+    isOpen: false,
+    slotIndex: 0,
+    imageSrc: ''
+  });
+
   if (!isOpen) return null;
 
   const generateSlug = (text: string) => {
@@ -56,23 +67,24 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       .replace(/^-+|-+$/g, '');
   };
 
-  const handleImageSlotUpload = async (slotIndex: number, file: File) => {
-    try {
-      const compressed = await compressImageFile(file, 700, 700, 0.75);
-      const updated = [...images];
-      updated[slotIndex] = compressed;
-      setImages(updated);
-    } catch {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          const updated = [...images];
-          updated[slotIndex] = e.target.result as string;
-          setImages(updated);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleImageSlotUpload = (slotIndex: number, file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setCropModal({
+          isOpen: true,
+          slotIndex,
+          imageSrc: e.target.result as string
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropApply = (croppedDataUrl: string) => {
+    const updated = [...images];
+    updated[cropModal.slotIndex] = croppedDataUrl;
+    setImages(updated);
   };
 
   const handleApplyQuickAdd = (variants: string[]) => {
@@ -306,31 +318,81 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               {[0, 1, 2].map((slotIdx) => {
                 const img = images[slotIdx] || '';
                 return (
-                  <div key={slotIdx} className="bg-white p-2 rounded-lg border border-slate-200 space-y-1.5">
-                    <span className="text-[10px] font-bold text-slate-600 block">
-                      {slotIdx === 0 ? 'মেইন ছবি' : `ছবি ${slotIdx + 1}`}
-                    </span>
-                    <div className="w-full h-16 bg-slate-50 border border-slate-200 rounded flex items-center justify-center overflow-hidden">
+                  <div key={slotIdx} className="bg-white p-2 rounded-lg border border-slate-200 space-y-1.5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-600 block">
+                        {slotIdx === 0 ? 'মেইন ছবি' : `ছবি ${slotIdx + 1}`}
+                      </span>
+                      {img && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...images];
+                            updated[slotIdx] = '';
+                            setImages(updated);
+                          }}
+                          className="text-[9px] text-rose-500 hover:underline cursor-pointer"
+                        >
+                          রিমুভ
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative w-full h-16 bg-slate-50 border border-slate-200 rounded flex items-center justify-center overflow-hidden group">
                       {img ? (
-                        <img src={img} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                        <>
+                          <img src={img} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCropModal({
+                                isOpen: true,
+                                slotIndex: slotIdx,
+                                imageSrc: img
+                              });
+                            }}
+                            className="absolute inset-0 bg-stone-950/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 text-[10px] font-bold transition-opacity cursor-pointer backdrop-blur-2xs"
+                            title="জুম ও ক্রপ করুন"
+                          >
+                            <Crop className="w-3 h-3 text-emerald-400" />
+                            <span>জুম / ক্রপ</span>
+                          </button>
+                        </>
                       ) : (
                         <span className="text-[9px] text-slate-400">ছবি নেই</span>
                       )}
                     </div>
-                    <label className="flex items-center justify-center gap-1 w-full py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded cursor-pointer">
-                      <Upload className="w-2.5 h-2.5" />
-                      <span>আপলোড</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            handleImageSlotUpload(slotIdx, e.target.files[0]);
-                          }
-                        }}
-                      />
-                    </label>
+                    <div className="flex items-center gap-1">
+                      <label className="flex-1 flex items-center justify-center gap-1 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded cursor-pointer transition-colors">
+                        <Upload className="w-2.5 h-2.5" />
+                        <span>আপলোড</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleImageSlotUpload(slotIdx, e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
+                      {img && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCropModal({
+                              isOpen: true,
+                              slotIndex: slotIdx,
+                              imageSrc: img
+                            });
+                          }}
+                          className="p-1 rounded bg-stone-100 hover:bg-emerald-50 hover:text-emerald-800 text-stone-600 cursor-pointer transition-colors border border-stone-200"
+                          title="ছবি জুম ও ক্রপ করুন"
+                        >
+                          <ZoomIn className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -384,6 +446,15 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Image Crop & Zoom Modal */}
+      <ImageCropZoomModal
+        isOpen={cropModal.isOpen}
+        imageSrc={cropModal.imageSrc}
+        onClose={() => setCropModal({ ...cropModal, isOpen: false })}
+        onApply={handleCropApply}
+        title="প্রোডাক্ট ছবির পজিশন, জুম ও ক্রপ ঠিক করুন"
+      />
     </div>
   );
 };
