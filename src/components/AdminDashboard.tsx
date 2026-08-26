@@ -3114,6 +3114,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <div className="text-[10px] text-stone-400 truncate max-w-[180px] mt-0.5" title={getCustomerAddress(order)}>
                                 {getCustomerAddress(order)}
                               </div>
+
+                              {/* Products ordered badges in table row */}
+                              {order.items && order.items.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap gap-1 max-w-[260px]">
+                                  {order.items.map((it: any, i: number) => {
+                                    const matched = products.find((p) => p.id === (it.id || it.productId || it.product?.id));
+                                    const name = it.name || it.title || it.productName || it.product?.name || it.productNameSnapshot || matched?.name || 'পণ্য';
+                                    const qty = it.quantity || 1;
+                                    return (
+                                      <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 text-[10px] font-medium border border-stone-200"
+                                        title={`${name} (Qty: ${qty})`}
+                                      >
+                                        <span className="font-bold text-emerald-800 line-clamp-1 max-w-[150px]">{name}</span>
+                                        <span className="text-stone-500 font-bold">×{qty}</span>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </td>
 
                             {/* Billing & Breakdown */}
@@ -6354,22 +6375,91 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Purchased Items List */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="font-bold text-stone-900 flex items-center justify-between text-xs">
-                  <span>Purchased Items:</span>
-                  <span className="text-stone-500 text-[11px] font-normal">
+                  <span className="flex items-center gap-1.5">
+                    <ShoppingBag className="w-3.5 h-3.5 text-[#0a5c36]" />
+                    <span>অর্ডারকৃত পণ্যসমূহ (Purchased Items):</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-stone-100 border border-stone-200 text-stone-700 text-[11px] font-bold">
                     {selectedOrderDetails.items?.length || 0} item(s)
                   </span>
                 </div>
-                <div className="divide-y divide-stone-100 border border-stone-200/80 rounded-2xl p-3 bg-stone-50/50 max-h-48 overflow-y-auto">
+                <div className="space-y-2 border border-stone-200 rounded-2xl p-3 bg-stone-50/70 max-h-60 overflow-y-auto">
                   {selectedOrderDetails.items?.map((it: any, idx: number) => {
-                    const itName = it.product?.name || it.productNameSnapshot || 'Item';
-                    const itPrice = it.product?.price || it.unitPriceSnapshot || it.price || 0;
+                    const matchedProduct = products.find(
+                      (p) => p.id === (it.id || it.productId || it.product?.id)
+                    );
+                    const itName =
+                      it.name ||
+                      it.title ||
+                      it.productName ||
+                      it.product?.name ||
+                      it.productNameSnapshot ||
+                      matchedProduct?.name ||
+                      `পণ্য #${idx + 1}`;
+                    const itImage =
+                      it.image ||
+                      it.productImageSnapshot ||
+                      it.product?.image ||
+                      (it.product?.images && it.product.images[0]) ||
+                      matchedProduct?.image ||
+                      (matchedProduct?.images && matchedProduct.images[0]) ||
+                      'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80';
+                    const itPrice =
+                      it.price ||
+                      it.unitPriceSnapshot ||
+                      it.product?.price ||
+                      matchedProduct?.price ||
+                      0;
                     const itQty = it.quantity || 1;
+                    const variant =
+                      it.selectedSize ||
+                      it.selectedColor ||
+                      it.variant ||
+                      matchedProduct?.weight ||
+                      '';
+                    const category =
+                      it.category ||
+                      it.product?.category ||
+                      matchedProduct?.category ||
+                      '';
+
                     return (
-                      <div key={idx} className="flex justify-between items-center py-1.5 first:pt-0 last:pb-0">
-                        <span className="text-stone-800 font-medium">{itName} × {itQty}</span>
-                        <span className="font-bold text-stone-900">{symbol}{Math.round(itPrice * itQty * rate).toLocaleString()}</span>
+                      <div
+                        key={idx}
+                        className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-stone-200 shadow-2xs"
+                      >
+                        <img
+                          src={itImage}
+                          alt={itName}
+                          className="w-12 h-12 rounded-lg object-cover border border-stone-200 shrink-0 bg-stone-100"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-xs text-stone-900 line-clamp-1">
+                            {itName}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-stone-500 mt-0.5">
+                            {variant && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-bold">
+                                {variant}
+                              </span>
+                            )}
+                            {category && (
+                              <span className="text-[10px] text-stone-400">
+                                {category}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-xs font-bold text-emerald-900">
+                            ৳{Math.round(itPrice * rate).toLocaleString()} × {itQty}
+                          </div>
+                          <div className="text-xs font-black text-stone-900 mt-0.5">
+                            = ৳{Math.round(itPrice * itQty * rate).toLocaleString()}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
