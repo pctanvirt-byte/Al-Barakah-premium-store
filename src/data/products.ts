@@ -519,9 +519,4 @@ export const CATEGORIES = [
   'Offer Zone'
 ] as const;
 
-export const PROMO_CODES: Record<string, number> = {
-  'BARAKAH10': 0.10,
-  'WELCOME15': 0.15,
-  'EIDSPECIAL': 0.20,
-  'SUNNAH25': 0.25
-};
+export const PROMO_CODES: Record<string, number> = {};

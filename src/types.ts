@@ -326,6 +326,15 @@ export interface BKashPaymentConfig {
   gateway: BKashGatewayCredentials;
 }
 
+export interface CouponItem {
+  id: string;
+  code: string;
+  discountPercent: number;
+  minSpend: number;
+  status: 'active' | 'expired';
+  usageCount: number;
+}
+
 export const DEFAULT_BKASH_CONFIG: BKashPaymentConfig = {
   enabled: true,
   mode: 'MANUAL',

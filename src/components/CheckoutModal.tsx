@@ -36,6 +36,7 @@ interface CheckoutModalProps {
   currentUser?: any;
   deliveryConfig?: DeliveryConfig;
   bkashConfig?: BKashPaymentConfig;
+  enableCoupons?: boolean;
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
@@ -53,6 +54,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   currentUser,
   deliveryConfig = DEFAULT_DELIVERY_CONFIG,
   bkashConfig = DEFAULT_BKASH_CONFIG,
+  enableCoupons = false,
 }) => {
   const [selectedZone, setSelectedZone] = useState<'inside' | 'outside' | 'sub_dhaka'>('inside');
   const [formData, setFormData] = useState({
@@ -78,7 +80,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }, 0);
 
   const activeSubtotal = subtotal !== undefined ? subtotal : computedSubtotal;
-  const activeDiscount = discount !== undefined ? discount : (activeSubtotal * (discountPercent || 0));
+  const effectiveDiscountPercent = enableCoupons ? (discountPercent || 0) : 0;
+  const activeDiscount = enableCoupons 
+    ? (discount !== undefined ? discount : (activeSubtotal * effectiveDiscountPercent))
+    : 0;
   const netProductTotal = Math.max(0, activeSubtotal - activeDiscount);
 
   // Dynamic delivery charge calculation

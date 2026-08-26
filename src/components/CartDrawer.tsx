@@ -58,7 +58,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       setAppliedPromo(code);
       setPromoError('');
     } else {
-      setPromoError('Invalid coupon code. Try BARAKAH10 or SUNNAH25');
+      setPromoError('কুপন কোডটি সঠিক নয়');
     }
   };
 

@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Product, Order, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, FacebookPixelConfig, BKashPaymentConfig } from '../types';
+import { Product, Order, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, FacebookPixelConfig, BKashPaymentConfig, CouponItem } from '../types';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { compressDataUrl } from '../utils/imageCompressor';
 
@@ -520,10 +520,12 @@ export const seedInitialCategoriesIfEmpty = async (initialCategories: CategoryIt
   }
 };
 
-// --- SETTINGS (Review Toggle, Banners, Top Selling, Courier Config, Delivery Config, Facebook Pixel, bKash Config) ---
+// --- SETTINGS (Review Toggle, Coupon Toggle & Codes, Banners, Top Selling, Courier Config, Delivery Config, Facebook Pixel, bKash Config) ---
 export const subscribeToStoreSettings = (
   callback: (settings: {
     enableCustomerReviews?: boolean;
+    enableCoupons?: boolean;
+    coupons?: CouponItem[];
     heroBanners?: HeroBannerConfig | HeroBannerConfig[] | any;
     topSelling?: TopSellingSectionConfig;
     courierConfig?: CourierConfig;
@@ -558,6 +560,8 @@ export const subscribeToStoreSettings = (
 
 export const saveStoreSettingsToDb = async (settings: {
   enableCustomerReviews?: boolean;
+  enableCoupons?: boolean;
+  coupons?: CouponItem[];
   heroBanners?: HeroBannerConfig | HeroBannerConfig[] | any;
   topSelling?: TopSellingSectionConfig;
   courierConfig?: CourierConfig;

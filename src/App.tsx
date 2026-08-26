@@ -21,7 +21,7 @@ import {
   Shield,
   ArrowRight
 } from 'lucide-react';
-import { Product, CartItem, Order, FilterState, Category, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG } from './types';
+import { Product, CartItem, Order, FilterState, Category, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG, CouponItem } from './types';
 import { INITIAL_PRODUCTS } from './data/products';
 import { INITIAL_CATEGORIES } from './data/categories';
 import { DEFAULT_TOP_SELLING_CONFIG } from './types/topSelling';
@@ -318,6 +318,10 @@ export default function App() {
   const [enableCustomerReviews, setEnableCustomerReviews] = useState<boolean>(true);
   const [reviews, setReviews] = useState<ProductReview[]>(INITIAL_REVIEWS);
 
+  // --- Promo & Discount Coupons State & Admin Toggle (Connected to Firestore) ---
+  const [enableCoupons, setEnableCoupons] = useState<boolean>(false);
+  const [activeCoupons, setActiveCoupons] = useState<CouponItem[]>([]);
+
   // --- Real-Time Firestore Synchronization Lifecycle ---
   useEffect(() => {
     // Clean up any stale or insecure business data stored in browser localStorage
@@ -382,6 +386,12 @@ export default function App() {
       if (typeof settings.enableCustomerReviews === 'boolean') {
         setEnableCustomerReviews(settings.enableCustomerReviews);
       }
+      if (typeof settings.enableCoupons === 'boolean') {
+        setEnableCoupons(settings.enableCoupons);
+      }
+      if (Array.isArray(settings.coupons)) {
+        setActiveCoupons(settings.coupons);
+      }
       if (settings.heroBanners) {
         if (Array.isArray(settings.heroBanners)) {
           setHeroBannerConfig({
@@ -444,6 +454,22 @@ export default function App() {
       unsubSettings();
     };
   }, []);
+
+  const handleToggleEnableCoupons = async (enabled: boolean) => {
+    setEnableCoupons(enabled);
+    if (!enabled) {
+      setAppliedDiscount(0);
+      setAppliedCoupon('');
+    }
+    await saveStoreSettingsToDb({ enableCoupons: enabled });
+    showToast(enabled ? 'কুপন ডিসকাউন্ট চালু করা হয়েছে' : 'কুপন ডিসকাউন্ট অপশন বন্ধ করা হয়েছে');
+  };
+
+  const handleUpdateCoupons = async (newCoupons: CouponItem[]) => {
+    setActiveCoupons(newCoupons);
+    await saveStoreSettingsToDb({ coupons: newCoupons });
+    showToast('কুপন তালিকা ডাটাবেজে আপডেট হয়েছে!');
+  };
 
   const handleUpdateFacebookPixelConfig = async (newPixelCfg: FacebookPixelConfig) => {
     setFacebookPixelConfig(newPixelCfg);
@@ -1104,6 +1130,10 @@ export default function App() {
         }}
         enableCustomerReviews={enableCustomerReviews}
         onToggleCustomerReviews={handleToggleCustomerReviews}
+        enableCoupons={enableCoupons}
+        onToggleEnableCoupons={handleToggleEnableCoupons}
+        activeCoupons={activeCoupons}
+        onUpdateCoupons={handleUpdateCoupons}
         customerReviews={reviews}
         onDeleteReview={handleDeleteReview}
         deliveryConfig={deliveryConfig}
@@ -1175,6 +1205,8 @@ export default function App() {
           }}
           currency={currency}
           deliveryConfig={deliveryConfig}
+          enableCoupons={enableCoupons}
+          activeCoupons={activeCoupons}
         />
       )}
 
@@ -1873,12 +1905,13 @@ export default function App() {
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
         items={cart}
-        discountPercent={appliedDiscount}
-        promoCode={appliedCoupon}
+        discountPercent={enableCoupons ? appliedDiscount : 0}
+        promoCode={enableCoupons ? appliedCoupon : ''}
         onOrderPlaced={handleOrderPlaced}
         currency={currency}
         deliveryConfig={deliveryConfig}
         bkashConfig={bkashConfig}
+        enableCoupons={enableCoupons}
       />
 
       <AddProductModal

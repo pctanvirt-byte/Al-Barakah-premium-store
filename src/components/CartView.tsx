@@ -11,8 +11,7 @@ import {
   Truck, 
   RotateCcw 
 } from 'lucide-react';
-import { CartItem, DeliveryConfig, DEFAULT_DELIVERY_CONFIG } from '../types';
-import { PROMO_CODES } from '../data/products';
+import { CartItem, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, CouponItem } from '../types';
 import { TakaIcon } from './TakaIcon';
 
 interface CartViewProps {
@@ -23,6 +22,8 @@ interface CartViewProps {
   onProceedCheckout: (discountPercent: number, appliedCode: string) => void;
   currency: 'USD' | 'BDT';
   deliveryConfig?: DeliveryConfig;
+  enableCoupons?: boolean;
+  activeCoupons?: CouponItem[];
 }
 
 export const CartView: React.FC<CartViewProps> = ({
@@ -33,9 +34,12 @@ export const CartView: React.FC<CartViewProps> = ({
   onProceedCheckout,
   currency,
   deliveryConfig = DEFAULT_DELIVERY_CONFIG,
+  enableCoupons = false,
+  activeCoupons = [],
 }) => {
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [appliedDiscountPercent, setAppliedDiscountPercent] = useState<number>(0);
   const [promoError, setPromoError] = useState('');
 
   const rate = 1;
@@ -46,7 +50,7 @@ export const CartView: React.FC<CartViewProps> = ({
     return sum + itemPrice * item.quantity;
   }, 0);
   const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const discountPercent = appliedPromo ? (PROMO_CODES[appliedPromo] || 0) : 0;
+  const discountPercent = enableCoupons ? appliedDiscountPercent : 0;
   const discountAmount = subtotal * discountPercent;
   
   const freeShippingThreshold = deliveryConfig.freeDeliveryThreshold || 2000;
@@ -57,19 +61,30 @@ export const CartView: React.FC<CartViewProps> = ({
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
-    const code = promoInput.trim().toUpperCase();
+    if (!enableCoupons) return;
+    const code = promoInput.trim().toUpperCase().replace(/\s+/g, '');
     if (!code) return;
 
-    if (PROMO_CODES[code]) {
-      setAppliedPromo(code);
+    const matchedCoupon = activeCoupons.find(
+      (c) => c.code.toUpperCase() === code && c.status === 'active'
+    );
+
+    if (matchedCoupon) {
+      if (matchedCoupon.minSpend && subtotal < matchedCoupon.minSpend) {
+        setPromoError(`এই কুপনটি ব্যবহার করতে ন্যূনতম ৳${matchedCoupon.minSpend.toLocaleString()} টাকার অর্ডার করতে হবে।`);
+        return;
+      }
+      setAppliedPromo(matchedCoupon.code);
+      setAppliedDiscountPercent(matchedCoupon.discountPercent / 100);
       setPromoError('');
     } else {
-      setPromoError('Invalid coupon code. Try BARAKAH10 or SUNNAH25');
+      setPromoError('কুপন কোডটি সঠিক নয় অথবা মেয়াদ শেষ হয়ে গেছে।');
     }
   };
 
   const removePromo = () => {
     setAppliedPromo(null);
+    setAppliedDiscountPercent(0);
     setPromoInput('');
     setPromoError('');
   };
@@ -280,48 +295,50 @@ export const CartView: React.FC<CartViewProps> = ({
                 Order Summary
               </h2>
 
-              {/* Coupon Code Section */}
-              <div>
-                {!appliedPromo ? (
-                  <form onSubmit={handleApplyPromo} className="space-y-2">
-                    <label className="text-xs font-bold text-stone-700">Promo Code</label>
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Tag className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-3 pointer-events-none" />
-                        <input
-                          type="text"
-                          placeholder="e.g. BARAKAH10"
-                          value={promoInput}
-                          onChange={(e) => setPromoInput(e.target.value)}
-                          className="w-full text-xs py-2.5 pl-9 pr-3 bg-stone-50 border border-stone-200 rounded-xl uppercase placeholder:normal-case focus:outline-none focus:border-stone-900"
-                        />
+              {/* Coupon Code Section (Only rendered when enableCoupons is TRUE) */}
+              {enableCoupons && (
+                <div>
+                  {!appliedPromo ? (
+                    <form onSubmit={handleApplyPromo} className="space-y-2">
+                      <label className="text-xs font-bold text-stone-700">Promo / Coupon Code</label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Tag className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-3 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="e.g. DISCOUNT10"
+                            value={promoInput}
+                            onChange={(e) => setPromoInput(e.target.value)}
+                            className="w-full text-xs py-2.5 pl-9 pr-3 bg-stone-50 border border-stone-200 rounded-xl uppercase placeholder:normal-case focus:outline-none focus:border-stone-900"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="px-4 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-bold hover:bg-stone-800 transition-colors cursor-pointer shadow-xs"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                      {promoError && (
+                        <p className="text-[11px] text-rose-500 pl-1">{promoError}</p>
+                      )}
+                    </form>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
+                      <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
+                        <span>{appliedPromo} ({Math.round(discountPercent * 100)}% OFF)</span>
                       </div>
                       <button
-                        type="submit"
-                        className="px-4 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-bold hover:bg-stone-800 transition-colors cursor-pointer shadow-xs"
+                        onClick={removePromo}
+                        className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
                       >
-                        Apply
+                        Remove
                       </button>
                     </div>
-                    {promoError && (
-                      <p className="text-[11px] text-rose-500 pl-1">{promoError}</p>
-                    )}
-                  </form>
-                ) : (
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
-                    <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
-                      <Sparkles className="w-4 h-4 text-emerald-600" />
-                      <span>{appliedPromo} ({Math.round(discountPercent * 100)}% OFF)</span>
-                    </div>
-                    <button
-                      onClick={removePromo}
-                      className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* Breakdown */}
               <div className="space-y-2.5 text-xs text-stone-600 pt-2 border-t border-stone-100 font-bengali">
