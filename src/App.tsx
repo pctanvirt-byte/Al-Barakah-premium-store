@@ -286,6 +286,7 @@ export default function App() {
   // --- Modals State ---
   const [activePageView, setActivePageView] = useState<'CATALOG' | 'CART' | 'TRACK' | 'LOGIN' | 'WISHLIST'>('CATALOG');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [quickBuyItem, setQuickBuyItem] = useState<CartItem | null>(null);
   const [isCustomerDashboardOpen, setIsCustomerDashboardOpen] = useState(false);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -857,11 +858,12 @@ export default function App() {
 
   // Track Facebook Pixel InitiateCheckout
   useEffect(() => {
-    if (isCheckoutOpen && cart.length > 0) {
-      const subtotal = cart.reduce((sum, item) => sum + (item.customPrice ?? item.product.price) * item.quantity, 0);
-      trackFbInitiateCheckout(cart, Math.max(0, subtotal - appliedDiscount), currency);
+    const activeCheckoutItems = quickBuyItem ? [quickBuyItem] : cart;
+    if (isCheckoutOpen && activeCheckoutItems.length > 0) {
+      const subtotal = activeCheckoutItems.reduce((sum, item) => sum + (item.customPrice ?? item.product.price) * item.quantity, 0);
+      trackFbInitiateCheckout(activeCheckoutItems, Math.max(0, subtotal - appliedDiscount), currency);
     }
-  }, [isCheckoutOpen]);
+  }, [isCheckoutOpen, quickBuyItem]);
 
   // Cart Operations
   const handleAddToCart = (product: Product, quantity = 1, color?: string, size?: string, customPrice?: number) => {
@@ -949,9 +951,15 @@ export default function App() {
     showToast('তুলনা তালিকা খালি করা হয়েছে');
   };
 
-  // Quick Buy Now Flow
+  // Quick Buy Now Flow (Direct Checkout without adding to persistent Cart)
   const handleBuyNow = (product: Product, quantity = 1, color?: string, size?: string, customPrice?: number) => {
-    handleAddToCart(product, quantity, color, size, customPrice);
+    setQuickBuyItem({
+      product,
+      quantity,
+      selectedColor: color,
+      selectedSize: size,
+      customPrice,
+    });
     setSelectedProduct(null);
     setActivePageView('CATALOG');
     setIsCheckoutOpen(true);
@@ -982,7 +990,12 @@ export default function App() {
       console.warn('Order notification trigger error:', e);
     }
 
-    setCart([]); // Clear cart
+    // If order was from regular cart, empty the cart. If from Quick Buy Now, reset quickBuyItem.
+    if (!quickBuyItem) {
+      setCart([]); // Clear regular cart
+    }
+    setQuickBuyItem(null);
+
     // Track Facebook Pixel Purchase event
     trackFbPurchase(newOrder);
     showToast(`Order #${newOrder.id} confirmed & saved to Live Database!`);
@@ -1898,8 +1911,11 @@ export default function App() {
 
       <CheckoutModal
         isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
-        items={cart}
+        onClose={() => {
+          setIsCheckoutOpen(false);
+          setQuickBuyItem(null);
+        }}
+        items={quickBuyItem ? [quickBuyItem] : cart}
         discountPercent={enableCoupons ? appliedDiscount : 0}
         promoCode={enableCoupons ? appliedCoupon : ''}
         onOrderPlaced={handleOrderPlaced}
