@@ -1149,33 +1149,45 @@ export default function App() {
           showToast('Logged out of Admin Session');
         }}
         onUpdateProducts={async (updatedProducts) => {
-          // Identify any deleted products and delete them from Firestore
+          const oldProductsMap = new Map(products.map((p) => [p.id, p]));
           const currentProdIds = new Set(updatedProducts.map((p) => p.id));
           const deletedProds = products.filter((p) => !currentProdIds.has(p.id));
           
+          // Determine newly added or changed products only
+          const changedOrNewProds = updatedProducts.filter((p) => {
+            const oldP = oldProductsMap.get(p.id);
+            if (!oldP) return true; // Newly created
+            // Check if any property was modified
+            return JSON.stringify(oldP) !== JSON.stringify(p);
+          });
+
+          // Immediate local state update for zero UI lag
           setProducts(updatedProducts);
           try {
             localStorage.setItem('albarakah_backup_products', JSON.stringify(updatedProducts));
           } catch (e) {}
 
-          // Delete removed products from Firestore
+          // Perform Firestore operations in background / parallel
+          const firestorePromises: Promise<any>[] = [];
+
           for (const delProd of deletedProds) {
-            try {
-              await deleteProductFromDb(delProd.id);
-            } catch (err) {
-              console.error('Firestore delete product error:', err);
-            }
+            firestorePromises.push(
+              deleteProductFromDb(delProd.id).catch((err) =>
+                console.error('Firestore delete product error:', err)
+              )
+            );
           }
 
-          // Save new and updated products to Firestore
-          if (Array.isArray(updatedProducts)) {
-            for (const prod of updatedProducts) {
-              try {
-                await saveProductToDb(prod);
-              } catch (err) {
-                console.error('Firestore save product error:', err);
-              }
-            }
+          for (const prod of changedOrNewProds) {
+            firestorePromises.push(
+              saveProductToDb(prod).catch((err) =>
+                console.error('Firestore save product error:', err)
+              )
+            );
+          }
+
+          if (firestorePromises.length > 0) {
+            await Promise.all(firestorePromises);
           }
         }}
         onUpdateOrders={async (updatedOrders) => {

@@ -709,12 +709,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsSavingProduct(true);
 
     try {
-      // Sanitize and compress any base64 images
+      // Sanitize and compress any base64 images with safety timeout
       const compressedImages = await Promise.all(
         prodFormImages.map(async (img) => {
           if (img && img.startsWith('data:image/') && img.length > 25000) {
             try {
-              return await compressDataUrl(img, 600, 600, 0.70);
+              const timeoutCompress = Promise.race([
+                compressDataUrl(img, 600, 600, 0.70),
+                new Promise<string>((resolve) => setTimeout(() => resolve(img), 800))
+              ]);
+              return await timeoutCompress;
             } catch {
               return img;
             }
