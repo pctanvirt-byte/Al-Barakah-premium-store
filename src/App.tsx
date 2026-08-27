@@ -385,9 +385,10 @@ export default function App() {
     }
 
     // Real-time subscriptions to Firestore DB
-    // (Redundant getDocs auto-seeding removed to preserve daily Firestore free read/write quota)
+    // Optimization: Orders are only subscribed when in Admin View or Admin Authenticated
+    // to preserve daily free read quota for public store visitors.
 
-    // 1. Subscribe to Live Products
+    // 1. Subscribe to Live Products (Cached mirror prevents flash)
     const unsubProducts = subscribeToProducts((liveProducts) => {
       if (Array.isArray(liveProducts)) {
         setProducts(liveProducts);
@@ -408,15 +409,18 @@ export default function App() {
       }
     });
 
-    // 3. Subscribe to Live Orders
-    const unsubOrders = subscribeToOrders((liveOrders) => {
-      if (liveOrders) {
-        setOrders(liveOrders);
-        try {
-          localStorage.setItem('albarakah_backup_orders', JSON.stringify(liveOrders));
-        } catch (e) {}
-      }
-    });
+    // 3. Subscribe to Live Orders ONLY IF Admin view is active or admin is logged in
+    let unsubOrders: (() => void) | null = null;
+    if (isAdminView || isEffectiveAdmin) {
+      unsubOrders = subscribeToOrders((liveOrders) => {
+        if (liveOrders) {
+          setOrders(liveOrders);
+          try {
+            localStorage.setItem('albarakah_backup_orders', JSON.stringify(liveOrders));
+          } catch (e) {}
+        }
+      });
+    }
 
     // 4. Subscribe to Live Reviews
     const unsubReviews = subscribeToReviews((liveReviews) => {
@@ -503,11 +507,11 @@ export default function App() {
     return () => {
       unsubProducts();
       unsubCategories();
-      unsubOrders();
+      if (unsubOrders) unsubOrders();
       unsubReviews();
       unsubSettings();
     };
-  }, []);
+  }, [isAdminView, isEffectiveAdmin]);
 
   const handleToggleEnableCoupons = async (enabled: boolean) => {
     setEnableCoupons(enabled);
