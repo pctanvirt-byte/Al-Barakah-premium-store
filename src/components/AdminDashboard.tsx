@@ -44,7 +44,8 @@ import {
   Globe,
   Filter,
   Crop,
-  ZoomIn
+  ZoomIn,
+  Loader2
 } from 'lucide-react';
 import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, TopSellingItem, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG } from '../types';
 import { Layers, Flame, Truck, Send, CheckCircle, User, Download, Database, HardDriveDownload, RefreshCw } from 'lucide-react';
@@ -236,6 +237,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [customVariantInput, setCustomVariantInput] = useState<string>('');
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [toastNotice, setToastNotice] = useState<string | null>(null);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [productFormError, setProductFormError] = useState<string | null>(null);
 
   // Crop & Zoom Modal state for Admin
   const [cropModal, setCropModal] = useState<{
@@ -687,79 +690,100 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsProductModalOpen(true);
   };
 
-  const handleSaveProductForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prodFormName.trim()) return;
+  const handleSaveProductForm = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setProductFormError(null);
 
-    // Sanitize and compress any base64 images
-    const compressedImages = await Promise.all(
-      prodFormImages.map(async (img) => {
-        if (img && img.startsWith('data:image/') && img.length > 25000) {
-          try {
-            return await compressDataUrl(img, 600, 600, 0.70);
-          } catch {
-            return img;
-          }
-        }
-        return img;
-      })
-    );
-
-    // Filter valid images
-    const validImages = compressedImages.filter(img => Boolean(img && img.trim()));
-    const primaryImg = validImages[0] || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80';
-    const allImages = validImages.length > 0 ? validImages : [primaryImg];
-    const finalSlug = prodFormSlug.trim() || generateSlug(prodFormName);
-
-    if (prodFormId) {
-      const updated = products.map((p) => {
-        if (p.id === prodFormId) {
-          return {
-            ...p,
-            name: prodFormName.trim(),
-            slug: finalSlug,
-            category: prodFormCategory,
-            price: parseFloat(prodFormPrice) || p.price,
-            costPrice: prodFormCostPrice ? parseFloat(prodFormCostPrice) : undefined,
-            originalPrice: prodFormOriginalPrice ? parseFloat(prodFormOriginalPrice) : undefined,
-            image: primaryImg,
-            images: allImages,
-            description: prodFormDescription.trim(),
-            stockCount: parseInt(prodFormStock) || 25,
-            inStock: (parseInt(prodFormStock) || 0) > 0,
-            badge: (prodFormBadge as any) || undefined,
-            sizes: prodFormSizes.length > 0 ? prodFormSizes : undefined,
-          };
-        }
-        return p;
-      });
-      await onUpdateProducts(updated);
-      showToast(`"${prodFormName.trim()}" তথ্য সফলভাবে আপডেট হয়েছে!`);
-    } else {
-      const newP: Product = {
-        id: `prod-${Date.now()}`,
-        name: prodFormName.trim(),
-        slug: finalSlug,
-        category: prodFormCategory,
-        price: parseFloat(prodFormPrice) || 20,
-        costPrice: prodFormCostPrice ? parseFloat(prodFormCostPrice) : undefined,
-        originalPrice: prodFormOriginalPrice ? parseFloat(prodFormOriginalPrice) : undefined,
-        rating: 5.0,
-        reviewCount: 1,
-        image: primaryImg,
-        images: allImages,
-        description: prodFormDescription.trim(),
-        features: ['100% Genuine Certified', 'Fast Cash on Delivery', 'Premium Packaging'],
-        inStock: (parseInt(prodFormStock) || 1) > 0,
-        stockCount: parseInt(prodFormStock) || 25,
-        badge: (prodFormBadge as any) || undefined,
-        sizes: prodFormSizes.length > 0 ? prodFormSizes : undefined,
-        tags: [prodFormCategory.toLowerCase(), 'new-product'],
-      };
-      await onUpdateProducts([newP, ...products]);
-      showToast(`নতুন প্রোডাক্ট "${newP.name}" ক্লাউড ডাটাবেজে সফলভাবে যোগ করা হয়েছে!`);
+    const cleanName = prodFormName.trim();
+    if (!cleanName) {
+      setProductFormError('দয়া করে প্রোডাক্টের নাম লিখুন (Product Name is required)');
+      return;
     }
-    setIsProductModalOpen(false);
+
+    const priceNum = parseFloat(prodFormPrice);
+    if (isNaN(priceNum) || priceNum < 0) {
+      setProductFormError('দয়া করে সঠিক বিক্রয় মূল্য দিন (Valid Selling Price is required)');
+      return;
+    }
+
+    setIsSavingProduct(true);
+
+    try {
+      // Sanitize and compress any base64 images
+      const compressedImages = await Promise.all(
+        prodFormImages.map(async (img) => {
+          if (img && img.startsWith('data:image/') && img.length > 25000) {
+            try {
+              return await compressDataUrl(img, 600, 600, 0.70);
+            } catch {
+              return img;
+            }
+          }
+          return img;
+        })
+      );
+
+      // Filter valid images
+      const validImages = compressedImages.filter(img => Boolean(img && img.trim()));
+      const primaryImg = validImages[0] || 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80';
+      const allImages = validImages.length > 0 ? validImages : [primaryImg];
+      const finalSlug = prodFormSlug.trim() || generateSlug(cleanName);
+
+      if (prodFormId) {
+        const updated = products.map((p) => {
+          if (p.id === prodFormId) {
+            return {
+              ...p,
+              name: cleanName,
+              slug: finalSlug,
+              category: prodFormCategory,
+              price: priceNum,
+              costPrice: prodFormCostPrice ? parseFloat(prodFormCostPrice) : undefined,
+              originalPrice: prodFormOriginalPrice ? parseFloat(prodFormOriginalPrice) : undefined,
+              image: primaryImg,
+              images: allImages,
+              description: prodFormDescription.trim(),
+              stockCount: parseInt(prodFormStock) || 25,
+              inStock: (parseInt(prodFormStock) || 0) > 0,
+              badge: (prodFormBadge as any) || undefined,
+              sizes: prodFormSizes.length > 0 ? prodFormSizes : undefined,
+            };
+          }
+          return p;
+        });
+        await onUpdateProducts(updated);
+        showToast(`"${cleanName}" তথ্য সফলভাবে আপডেট হয়েছে!`);
+      } else {
+        const newP: Product = {
+          id: `prod-${Date.now()}`,
+          name: cleanName,
+          slug: finalSlug,
+          category: prodFormCategory,
+          price: priceNum,
+          costPrice: prodFormCostPrice ? parseFloat(prodFormCostPrice) : undefined,
+          originalPrice: prodFormOriginalPrice ? parseFloat(prodFormOriginalPrice) : undefined,
+          rating: 5.0,
+          reviewCount: 1,
+          image: primaryImg,
+          images: allImages,
+          description: prodFormDescription.trim(),
+          features: ['100% Genuine Certified', 'Fast Cash on Delivery', 'Premium Packaging'],
+          inStock: (parseInt(prodFormStock) || 1) > 0,
+          stockCount: parseInt(prodFormStock) || 25,
+          badge: (prodFormBadge as any) || undefined,
+          sizes: prodFormSizes.length > 0 ? prodFormSizes : undefined,
+          tags: [prodFormCategory.toLowerCase(), 'new-product'],
+        };
+        await onUpdateProducts([newP, ...products]);
+        showToast(`নতুন প্রোডাক্ট "${newP.name}" ক্লাউড ডাটাবেজে সফলভাবে যোগ করা হয়েছে!`);
+      }
+      setIsProductModalOpen(false);
+    } catch (err) {
+      console.error('Failed to save product:', err);
+      setProductFormError('প্রোডাক্ট সংরক্ষণে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+    } finally {
+      setIsSavingProduct(false);
+    }
   };
 
   // Orders filter & details
@@ -5910,24 +5934,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Sticky Bottom Action Bar */}
-              <div className="px-6 py-4 bg-white border-t border-stone-200 flex items-center justify-between shrink-0">
-                <div className="text-xs text-stone-500 hidden sm:block">
-                  প্রোডাক্টটি সেভ করার সাথে সাথে লাইভ ওয়েবসাইটে তথ্য হালনাগাদ হবে।
+              <div className="px-6 py-4 bg-white border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+                <div className="text-xs text-stone-500 w-full sm:w-auto">
+                  {productFormError ? (
+                    <div className="flex items-center gap-1.5 text-rose-600 font-bold text-xs bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>{productFormError}</span>
+                    </div>
+                  ) : (
+                    <span className="hidden sm:inline">প্রোডাক্টটি সেভ করার সাথে সাথে লাইভ ওয়েবসাইটে তথ্য হালনাগাদ হবে।</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                   <button
                     type="button"
-                    onClick={() => setIsProductModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold cursor-pointer transition-colors"
+                    disabled={isSavingProduct}
+                    onClick={() => {
+                      setProductFormError(null);
+                      setIsProductModalOpen(false);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold cursor-pointer transition-colors disabled:opacity-50"
                   >
                     Cancel (বাতিল)
                   </button>
                   <button
-                    type="submit"
-                    className="px-6 py-2.5 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] text-white text-xs font-bold shadow-md cursor-pointer transition-all flex items-center gap-1.5"
+                    type="button"
+                    disabled={isSavingProduct}
+                    onClick={() => handleSaveProductForm()}
+                    className="px-6 py-2.5 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] text-white text-xs font-bold shadow-md cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-60"
                   >
-                    <Check className="w-4 h-4" />
-                    <span>{prodFormId ? 'Save Changes (সেভ করুন)' : 'Add Product to Store (যোগ করুন)'}</span>
+                    {isSavingProduct ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>সংরক্ষণ হচ্ছে...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>{prodFormId ? 'Save Changes (সেভ করুন)' : 'Add Product to Store (যোগ করুন)'}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
