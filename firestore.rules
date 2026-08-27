@@ -1,41 +1,62 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is a Super Admin
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
     function isSuperAdmin() {
-      return request.auth != null && (
+      return isAuthenticated() && (
         request.auth.token.email == 'albarakahpremium10@gmail.com' ||
         request.auth.token.email == 'pctanvirt@gmail.com'
       );
     }
 
-    // 1. Products: Public read, allow write for store administration
+    // 1. Products: Public read, only authenticated staff/admin can create, update, or delete
     match /products/{productId} {
       allow read: if true;
-      allow write, delete: if true;
+      allow write: if isAuthenticated();
     }
 
-    // 1. Categories: Public read, allow write/delete for store administration
+    // 2. Categories: Public read, only authenticated staff/admin can modify
     match /categories/{categoryId} {
       allow read: if true;
-      allow write, delete: if true;
+      allow write: if isAuthenticated();
     }
 
-    // 2. Orders:
-    // - Public & Admin can read/list/create orders
-    // - Admin can update status or permanently delete orders
+    // 3. Orders:
+    // - Customers can create orders and read for tracking
+    // - Only authenticated admins can update status or delete orders
     match /orders/{orderId} {
-      allow read, write, delete: if true;
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAuthenticated();
     }
 
-    // Reviews: Public read & create verified review, allow delete/moderate
+    // 4. Reviews:
+    // - Public read & public verified review creation
+    // - Only authenticated admins can update or delete reviews
     match /reviews/{reviewId} {
-      allow read, write, delete: if true;
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAuthenticated();
     }
 
-    // 3. Store Settings (Banners, bKash numbers, Pixel & Domain configs):
+    // 5. Store Settings (Banners, bKash numbers, Pixel & Courier configs):
+    // - Public read for frontend rendering
+    // - Only authenticated staff/admin can write
     match /settings/{settingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 6. User Profiles / Staff:
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
   }
 }
+
