@@ -163,15 +163,15 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           title={`Click to view ${currentSlideItem.targetValue || 'category'}`}
           id="hero-main-slider"
         >
-          {/* Background Clean Images for All Active Slides (Zoomed Out / Full Frame) */}
-          {activeSlides.map((slide, index) => {
-            const isCurrent = index === currentSlide;
-            return (
+          {/* Smooth Sliding Track for All Active Slides (Glides in from Right) */}
+          <div 
+            className="flex w-full h-full transition-transform duration-500 ease-out will-change-transform"
+            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+          >
+            {activeSlides.map((slide) => (
               <div
                 key={slide.id}
-                className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out flex items-center justify-center bg-[#fdfcf9] ${
-                  isCurrent ? 'opacity-100 z-0' : 'opacity-0 pointer-events-none z-[-1]'
-                }`}
+                className="w-full h-full shrink-0 flex items-center justify-center bg-[#fdfcf9] relative overflow-hidden"
               >
                 <img
                   src={slide.image}
@@ -180,8 +180,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                   referrerPolicy="no-referrer"
                 />
               </div>
-            );
-          })}
+            ))}
+          </div>
 
           {/* Left Arrow Button (<) - Clean Ghorer Bazar Style */}
           {activeSlides.length > 1 && (
