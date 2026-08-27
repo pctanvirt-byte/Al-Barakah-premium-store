@@ -1160,17 +1160,21 @@ export default function App() {
 
           // Delete removed products from Firestore
           for (const delProd of deletedProds) {
-            deleteProductFromDb(delProd.id).catch((err) =>
-              console.error('Firestore delete product error:', err)
-            );
+            try {
+              await deleteProductFromDb(delProd.id);
+            } catch (err) {
+              console.error('Firestore delete product error:', err);
+            }
           }
 
           // Save new and updated products to Firestore
           if (Array.isArray(updatedProducts)) {
             for (const prod of updatedProducts) {
-              saveProductToDb(prod).catch((err) =>
-                console.error('Firestore save product error:', err)
-              );
+              try {
+                await saveProductToDb(prod);
+              } catch (err) {
+                console.error('Firestore save product error:', err);
+              }
             }
           }
         }}

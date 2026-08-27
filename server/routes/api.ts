@@ -970,20 +970,36 @@ apiRouter.post('/admin/send-otp', async (req, res) => {
   }
 });
 
-// POST /api/admin/verify-otp - Verify the 6-digit code
+// Rate limit map to prevent brute-force attacks on Master Key & OTP
+const failedAuthAttempts = new Map<string, { count: number; lockUntil: number }>();
+
+// POST /api/admin/verify-otp - Verify the 6-digit code or Master Security Key securely on the server
 apiRouter.post('/admin/verify-otp', async (req, res) => {
   try {
     const { email, code } = req.body;
     if (!email || !code) {
-      return res.status(400).json({ error: 'Email and OTP code are required' });
+      return res.status(400).json({ error: 'Email and OTP/Master Key are required' });
     }
 
     const cleanEmail = email.toLowerCase().trim();
     const cleanCode = code.toString().trim();
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const rateLimitKey = `${clientIp}_${cleanEmail}`;
+
+    // Check brute-force lock
+    const attemptRecord = failedAuthAttempts.get(rateLimitKey);
+    if (attemptRecord && attemptRecord.lockUntil > Date.now()) {
+      const waitMinutes = Math.ceil((attemptRecord.lockUntil - Date.now()) / 60000);
+      return res.status(429).json({
+        success: false,
+        error: `Too many failed attempts. Security lock active. Please wait ${waitMinutes} minute(s) before trying again.`,
+      });
+    }
 
     const storedOtp = activeOtps.get(cleanEmail);
     const isSuperAdmin = AUTHORIZED_SUPER_ADMINS.includes(cleanEmail);
-    const isMasterKey = cleanCode === (process.env.ADMIN_MASTER_OTP || 'ABPDelwar12#32R');
+    const serverMasterKey = process.env.ADMIN_MASTER_OTP || 'ABPDelwar12#32R';
+    const isMasterKey = cleanCode === serverMasterKey;
 
     // Secure Master Key or live generated Gmail OTP
     const isValid = 
@@ -991,13 +1007,15 @@ apiRouter.post('/admin/verify-otp', async (req, res) => {
       (isMasterKey && isSuperAdmin);
 
     if (isValid) {
+      // Clear failed attempts on success
+      failedAuthAttempts.delete(rateLimitKey);
       if (storedOtp) {
         activeOtps.delete(cleanEmail);
       }
 
       res.json({
         success: true,
-        message: 'OTP verified successfully',
+        message: 'Authentication successful',
         admin: {
           email: cleanEmail,
           role: 'Super Admin',
@@ -1005,13 +1023,25 @@ apiRouter.post('/admin/verify-otp', async (req, res) => {
         },
       });
     } else {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid or expired OTP code. Please check your Gmail and try again.',
-      });
+      // Increment failed attempts
+      const currentCount = (attemptRecord?.count || 0) + 1;
+      if (currentCount >= 5) {
+        // Lock for 15 minutes
+        failedAuthAttempts.set(rateLimitKey, { count: currentCount, lockUntil: Date.now() + 15 * 60 * 1000 });
+        return res.status(429).json({
+          success: false,
+          error: 'Security Lockout: 5 failed attempts detected. Access is temporarily locked for 15 minutes.',
+        });
+      } else {
+        failedAuthAttempts.set(rateLimitKey, { count: currentCount, lockUntil: 0 });
+        res.status(400).json({
+          success: false,
+          error: `Invalid credentials. (${5 - currentCount} attempt(s) remaining)`,
+        });
+      }
     }
   } catch (error) {
-    console.error('Failed to verify OTP:', error);
+    console.error('Failed to verify OTP / Master Key:', error);
     res.status(500).json({ error: 'Verification failed' });
   }
 });

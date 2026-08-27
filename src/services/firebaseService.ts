@@ -13,7 +13,8 @@ import {
   getDocFromServer,
   limit
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
+import { db, auth } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Product, Order, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, FacebookPixelConfig, BKashPaymentConfig, CouponItem } from '../types';
 import { INITIAL_CATEGORIES } from '../data/categories';
@@ -25,6 +26,20 @@ const ORDERS_COLLECTION = 'orders';
 const CATEGORIES_COLLECTION = 'categories';
 const REVIEWS_COLLECTION = 'reviews';
 const SETTINGS_COLLECTION = 'settings';
+
+/**
+ * Guarantees a valid Firebase Auth session exists for writing to Firestore
+ * This prevents permission-denied errors when admin logs in via Passcode/Master Key
+ */
+export const ensureFirebaseAuth = async (): Promise<void> => {
+  try {
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
+    }
+  } catch (err) {
+    console.warn('Firebase Auth auto-signin warning:', err);
+  }
+};
 
 // --- FIRESTORE CONNECTIVITY TEST ---
 export interface FirestoreConnectionStatus {
@@ -177,6 +192,7 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, max
 
 export const saveProductToDb = async (product: Product): Promise<void> => {
   try {
+    await ensureFirebaseAuth();
     const sanitized = await sanitizeProduct(product);
     const cleaned = removeUndefinedFields(sanitized);
     const docRef = doc(db, PRODUCTS_COLLECTION, cleaned.id);
@@ -201,6 +217,7 @@ export const saveProductToDb = async (product: Product): Promise<void> => {
 
 export const deleteProductFromDb = async (productId: string): Promise<void> => {
   try {
+    await ensureFirebaseAuth();
     const docRef = doc(db, PRODUCTS_COLLECTION, productId);
     await deleteDoc(docRef);
 
@@ -288,6 +305,7 @@ export const updateOrderStatusInDb = async (
   status: Order['status'],
   paymentStatus?: Order['paymentStatus']
 ): Promise<void> => {
+  await ensureFirebaseAuth();
   const docRef = doc(db, ORDERS_COLLECTION, orderId);
   const updateData: any = { status };
   if (paymentStatus) updateData.paymentStatus = paymentStatus;
@@ -296,6 +314,7 @@ export const updateOrderStatusInDb = async (
 
 export const deleteOrderFromDb = async (orderId: string): Promise<void> => {
   try {
+    await ensureFirebaseAuth();
     const docRef = doc(db, ORDERS_COLLECTION, orderId);
     await deleteDoc(docRef);
   } catch (err) {
@@ -406,6 +425,7 @@ export const saveReviewToDb = async (review: ProductReview): Promise<void> => {
 
 export const deleteReviewFromDb = async (reviewId: string): Promise<void> => {
   try {
+    await ensureFirebaseAuth();
     const docRef = doc(db, REVIEWS_COLLECTION, reviewId);
     await deleteDoc(docRef);
 
@@ -468,6 +488,7 @@ export const subscribeToCategories = (callback: (categories: CategoryItem[]) => 
 
 export const saveCategoryToDb = async (category: CategoryItem): Promise<void> => {
   try {
+    await ensureFirebaseAuth();
     const sanitized = await sanitizeCategory(category);
     const cleaned = removeUndefinedFields(sanitized);
     const docRef = doc(db, CATEGORIES_COLLECTION, cleaned.id);
@@ -491,6 +512,7 @@ export const saveCategoryToDb = async (category: CategoryItem): Promise<void> =>
 
 export const deleteCategoryFromDb = async (categoryId: string): Promise<void> => {
   try {
+    await ensureFirebaseAuth();
     const docRef = doc(db, CATEGORIES_COLLECTION, categoryId);
     await deleteDoc(docRef);
 
@@ -570,6 +592,7 @@ export const saveStoreSettingsToDb = async (settings: {
   bkashConfig?: BKashPaymentConfig;
 }): Promise<void> => {
   try {
+    await ensureFirebaseAuth();
     const docRef = doc(db, SETTINGS_COLLECTION, 'general');
     const cleanedSettings = removeUndefinedFields(settings);
     await setDoc(docRef, cleanedSettings, { merge: true });
@@ -596,6 +619,7 @@ export const updateOrderCourierInfoInDb = async (
   }
 ): Promise<void> => {
   try {
+    await ensureFirebaseAuth();
     const docRef = doc(db, ORDERS_COLLECTION, orderId);
     await updateDoc(docRef, removeUndefinedFields(courierData));
   } catch (err) {

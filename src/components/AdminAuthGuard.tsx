@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { AlBarakahLogo } from './AlBarakahLogo';
 import { StaffMember } from './AdminDashboard';
+import { ensureFirebaseAuth } from '../services/firebaseService';
 
 interface AdminAuthGuardProps {
   onBackToStore: () => void;
@@ -155,7 +156,7 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
     dispatchOtp('pctanvirt@gmail.com');
   };
 
-  // Verify OTP submission
+  // Verify OTP / Master Key submission via server-side verification
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -168,15 +169,7 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
       return;
     }
 
-    // Instant fail-safe validation for Master Recovery Key
-    const MASTER_KEYS = ['ABPDelwar12#32R', 'Delwar12#32R'];
-    if (MASTER_KEYS.includes(cleanInput)) {
-      setIsSubmittingOtp(false);
-      onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', 'Super Admin');
-      return;
-    }
-
-    // Submit verification to backend API (keeps Master Key and OTP secret on server-side)
+    // Submit verification to backend API (keeps Master Key and OTP 100% secret on server-side)
     try {
       const response = await fetch('/api/admin/verify-otp', {
         method: 'POST',
@@ -190,25 +183,20 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
       const data = await response.json();
       if (response.ok && data.success) {
         setIsSubmittingOtp(false);
+        await ensureFirebaseAuth();
         onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', pendingAdminRole || 'Super Admin');
         return;
       } else {
         setIsSubmittingOtp(false);
-        setAuthError(data.error || 'Invalid Verification Code. Please check your Gmail and try again.');
+        setAuthError(data.error || 'Invalid Verification Code. Please check your credentials and try again.');
       }
     } catch (err) {
-      // Fallback check in case network or backend error occurred during Master Key submission
-      if (MASTER_KEYS.includes(cleanInput)) {
-        setIsSubmittingOtp(false);
-        onAuthenticated(pendingAdminEmail || 'pctanvirt@gmail.com', 'Super Admin');
-        return;
-      }
       setIsSubmittingOtp(false);
-      setAuthError('Connection error during verification. Please use your Master Key (ABPDelwar12#32R) or try again.');
+      setAuthError('Network error during verification. Please check your connection and try again.');
     }
   };
 
-  // Handle Admin Passcode Access (Validated securely against server)
+  // Handle Admin Passcode Access (Validated 100% securely against server)
   const handlePasscodeLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -216,14 +204,6 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
     const cleanKey = adminPasscode.trim();
     if (!cleanKey) {
       setAuthError('Please enter the Master Security Key.');
-      return;
-    }
-
-    const MASTER_KEYS = ['ABPDelwar12#32R', 'Delwar12#32R'];
-    if (MASTER_KEYS.includes(cleanKey)) {
-      setPendingAdminEmail('pctanvirt@gmail.com');
-      setPendingAdminRole('Super Admin');
-      onAuthenticated('pctanvirt@gmail.com', 'Super Admin');
       return;
     }
 
@@ -240,6 +220,7 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
 
       const data = await response.json();
       if (response.ok && data.success) {
+        await ensureFirebaseAuth();
         setPendingAdminEmail('pctanvirt@gmail.com');
         setPendingAdminRole('Super Admin');
         onAuthenticated('pctanvirt@gmail.com', 'Super Admin');
@@ -247,12 +228,6 @@ export const AdminAuthGuard: React.FC<AdminAuthGuardProps> = ({
         setAuthError(data.error || 'Invalid Master Security Key. Access Denied.');
       }
     } catch (err) {
-      if (MASTER_KEYS.includes(cleanKey)) {
-        setPendingAdminEmail('pctanvirt@gmail.com');
-        setPendingAdminRole('Super Admin');
-        onAuthenticated('pctanvirt@gmail.com', 'Super Admin');
-        return;
-      }
       setAuthError('Server connection error. Please try again.');
     } finally {
       setIsVerifying(false);
