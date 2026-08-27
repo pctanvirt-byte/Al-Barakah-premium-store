@@ -28,15 +28,11 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
   if (!config.enabled) return null;
 
   // Resolve items from config.items
-  const rawItems = 
-    config.items && config.items.length > 0
-      ? config.items
-      : DEFAULT_TOP_SELLING_CONFIG.items;
-
-  let itemsToRender: TopSellingItem[] = rawItems.filter((i) => i.enabled !== false);
+  const rawItems = config.items || [];
+  const itemsToRender: TopSellingItem[] = rawItems.filter((i) => i.enabled !== false);
   
   if (itemsToRender.length === 0) {
-    itemsToRender = DEFAULT_TOP_SELLING_CONFIG.items.slice(0, 4);
+    return null;
   }
 
   // Helper to convert a TopSellingItem to a full Product object

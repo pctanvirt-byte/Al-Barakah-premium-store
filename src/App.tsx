@@ -243,11 +243,33 @@ export default function App() {
   );
   const isEffectiveAdmin = Boolean(adminAuth || isAdmin || isSuperAdminUser || profile?.role === 'admin' || profile?.role === 'super_admin');
 
-  // --- Hero Banner Configuration (Firestore Synced) ---
-  const [heroBannerConfig, setHeroBannerConfig] = useState<HeroBannerConfig>(DEFAULT_HERO_CONFIG);
+  // --- Hero Banner Configuration (Firestore Synced with Instant Local Cache) ---
+  const [heroBannerConfig, setHeroBannerConfig] = useState<HeroBannerConfig>(() => {
+    try {
+      const saved = localStorage.getItem('albarakah_backup_hero_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.slides) && parsed.slides.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_HERO_CONFIG;
+  });
 
-  // --- Top Selling Products Configuration (100% Pure Firestore Synced) ---
-  const [topSellingConfig, setTopSellingConfig] = useState<TopSellingSectionConfig>(DEFAULT_TOP_SELLING_CONFIG);
+  // --- Top Selling Products Configuration (Firestore Synced with Instant Local Cache) ---
+  const [topSellingConfig, setTopSellingConfig] = useState<TopSellingSectionConfig>(() => {
+    try {
+      const saved = localStorage.getItem('albarakah_backup_top_selling_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_TOP_SELLING_CONFIG;
+  });
 
   // --- Courier Configuration State (Steadfast & Pathao - Firestore Synced) ---
   const [courierConfig, setCourierConfig] = useState<CourierConfig>(DEFAULT_COURIER_CONFIG);
@@ -270,16 +292,33 @@ export default function App() {
   const [isProductsLoaded, setIsProductsLoaded] = useState(false);
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
-  const isInitialMountLoading = useMemo(() => {
-    return !isProductsLoaded || !isSettingsLoaded;
-  }, [isProductsLoaded, isSettingsLoaded]);
+  // Check if we have cached data to render instantly
+  const hasLocalCache = useMemo(() => {
+    try {
+      return Boolean(
+        localStorage.getItem('albarakah_backup_products') || 
+        localStorage.getItem('albarakah_backup_hero_config') ||
+        localStorage.getItem('albarakah_backup_categories')
+      );
+    } catch {
+      return false;
+    }
+  }, []);
 
-  // Fail-safe unlock after 3 seconds in case of offline/network issues
+  const isInitialMountLoading = useMemo(() => {
+    // If no local cache exists, wait for live Firestore data to prevent flashing default demo graphics
+    if (!hasLocalCache) {
+      return !isProductsLoaded || !isSettingsLoaded;
+    }
+    return false;
+  }, [hasLocalCache, isProductsLoaded, isSettingsLoaded]);
+
+  // Fail-safe unlock after 2.5 seconds in case of network issues
   const [forceUnlock, setForceUnlock] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => {
       setForceUnlock(true);
-    }, 3000);
+    }, 2500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -352,14 +391,20 @@ export default function App() {
     const unsubProducts = subscribeToProducts((liveProducts) => {
       if (Array.isArray(liveProducts)) {
         setProducts(liveProducts);
+        try {
+          localStorage.setItem('albarakah_backup_products', JSON.stringify(liveProducts));
+        } catch (e) {}
       }
       setIsProductsLoaded(true);
     });
 
     // 2. Subscribe to Live Categories
     const unsubCategories = subscribeToCategories((liveCategories) => {
-      if (Array.isArray(liveCategories)) {
+      if (Array.isArray(liveCategories) && liveCategories.length > 0) {
         setCategories(liveCategories);
+        try {
+          localStorage.setItem('albarakah_backup_categories', JSON.stringify(liveCategories));
+        } catch (e) {}
       }
     });
 
@@ -367,6 +412,9 @@ export default function App() {
     const unsubOrders = subscribeToOrders((liveOrders) => {
       if (liveOrders) {
         setOrders(liveOrders);
+        try {
+          localStorage.setItem('albarakah_backup_orders', JSON.stringify(liveOrders));
+        } catch (e) {}
       }
     });
 
@@ -389,27 +437,37 @@ export default function App() {
         setActiveCoupons(settings.coupons);
       }
       if (settings.heroBanners) {
+        let newHeroConfig: HeroBannerConfig;
         if (Array.isArray(settings.heroBanners)) {
-          setHeroBannerConfig({
+          newHeroConfig = {
             slides: settings.heroBanners,
             promoCard: DEFAULT_HERO_CONFIG.promoCard,
-          });
+          };
         } else if (typeof settings.heroBanners === 'object') {
           const raw = settings.heroBanners as any;
           if (Array.isArray(raw.slides)) {
-            setHeroBannerConfig({
+            newHeroConfig = {
               slides: raw.slides,
               promoCard: raw.promoCard || DEFAULT_HERO_CONFIG.promoCard,
-            });
+            };
           } else {
-            setHeroBannerConfig(raw as HeroBannerConfig);
+            newHeroConfig = raw as HeroBannerConfig;
           }
+        } else {
+          newHeroConfig = DEFAULT_HERO_CONFIG;
         }
+        setHeroBannerConfig(newHeroConfig);
+        try {
+          localStorage.setItem('albarakah_backup_hero_config', JSON.stringify(newHeroConfig));
+        } catch (e) {}
       }
       if (settings.topSelling && typeof settings.topSelling === 'object') {
         const topSellingData = settings.topSelling as TopSellingSectionConfig;
         if (topSellingData.items && topSellingData.items.length > 0) {
           setTopSellingConfig(topSellingData);
+          try {
+            localStorage.setItem('albarakah_backup_top_selling_config', JSON.stringify(topSellingData));
+          } catch (e) {}
         }
       }
       if (settings.courierConfig && typeof settings.courierConfig === 'object') {
@@ -500,6 +558,9 @@ export default function App() {
       order: idx,
     }));
     setCategories(sequenced);
+    try {
+      localStorage.setItem('albarakah_backup_categories', JSON.stringify(sequenced));
+    } catch (e) {}
     if (Array.isArray(sequenced)) {
       for (const c of sequenced) {
         await saveCategoryToDb(c);
@@ -1089,6 +1150,9 @@ export default function App() {
           const deletedProds = products.filter((p) => !currentProdIds.has(p.id));
           
           setProducts(updatedProducts);
+          try {
+            localStorage.setItem('albarakah_backup_products', JSON.stringify(updatedProducts));
+          } catch (e) {}
 
           // Delete removed products from Firestore
           for (const delProd of deletedProds) {
@@ -1115,6 +1179,10 @@ export default function App() {
           }
 
           setOrders(updatedOrders);
+          try {
+            localStorage.setItem('albarakah_backup_orders', JSON.stringify(updatedOrders));
+          } catch (e) {}
+
           if (Array.isArray(updatedOrders)) {
             await Promise.all(
               updatedOrders.map((o) =>
@@ -1131,11 +1199,17 @@ export default function App() {
         heroBannerConfig={heroBannerConfig}
         onUpdateHeroBannerConfig={async (banners) => {
           setHeroBannerConfig(banners);
+          try {
+            localStorage.setItem('albarakah_backup_hero_config', JSON.stringify(banners));
+          } catch (e) {}
           await saveStoreSettingsToDb({ heroBanners: banners });
         }}
         topSellingConfig={topSellingConfig}
         onUpdateTopSellingConfig={async (newTopSelling) => {
           setTopSellingConfig(newTopSelling);
+          try {
+            localStorage.setItem('albarakah_backup_top_selling_config', JSON.stringify(newTopSelling));
+          } catch (e) {}
           await saveStoreSettingsToDb({ topSelling: newTopSelling });
           showToast('টপ সেলিং সেকশন সফলভাবে আপডেট করা হয়েছে!');
         }}
