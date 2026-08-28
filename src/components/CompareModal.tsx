@@ -52,10 +52,16 @@ export const CompareModal: React.FC<CompareModalProps> = ({
 
   if (!isOpen) return null;
 
-  const safeCompareProducts = Array.isArray(compareProducts) ? compareProducts : [];
-  const safeAllProducts = Array.isArray(allProducts) ? allProducts : [];
+  // Filter out any invalid items safely
+  const safeCompareProducts = Array.isArray(compareProducts)
+    ? compareProducts.filter((p): p is Product => Boolean(p && typeof p === 'object' && p.id))
+    : [];
+  const safeAllProducts = Array.isArray(allProducts)
+    ? allProducts.filter((p): p is Product => Boolean(p && typeof p === 'object' && p.id))
+    : [];
 
   const handleSelectProd = (prod: Product) => {
+    if (!prod) return;
     if (onSelectProduct) {
       onSelectProduct(prod);
     } else if (onOpenProductModal) {
@@ -63,27 +69,31 @@ export const CompareModal: React.FC<CompareModalProps> = ({
     }
   };
 
-  const availableToAdd = safeAllProducts.filter(
-    (p) =>
-      p &&
-      !safeCompareProducts.some((cp) => cp && cp.id === p.id) &&
-      (pickerSearch.trim() === '' ||
-        (p.name && p.name.toLowerCase().includes(pickerSearch.toLowerCase())) ||
-        (p.category && p.category.toLowerCase().includes(pickerSearch.toLowerCase())))
-  );
+  const availableToAdd = safeAllProducts.filter((p) => {
+    if (!p || !p.id) return false;
+    const alreadyInCompare = safeCompareProducts.some((cp) => cp && cp.id === p.id);
+    if (alreadyInCompare) return false;
+    const searchStr = pickerSearch.trim().toLowerCase();
+    if (!searchStr) return true;
+    const nameStr = typeof p.name === 'string' ? p.name.toLowerCase() : '';
+    const catStr = typeof p.category === 'string' ? p.category.toLowerCase() : '';
+    return nameStr.includes(searchStr) || catStr.includes(searchStr);
+  });
 
   const handleAddToCartClick = (product: Product) => {
+    if (!product) return;
     onAddToCart(product, 1);
     setAddedProductId(product.id);
     setTimeout(() => setAddedProductId(null), 1500);
   };
 
   const handleBuyNowClick = (product: Product) => {
+    if (!product) return;
     onBuyNow(product, 1);
     onClose();
   };
 
-  // Up to 3 slots
+  // Up to 3 comparison slots
   const slots = [0, 1, 2];
 
   return (
@@ -95,7 +105,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 bg-stone-50 border-b border-stone-200">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-100 text-[#f38018] flex items-center justify-center font-bold">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-100 text-[#f38018] flex items-center justify-center font-bold shrink-0">
               <ArrowLeftRight className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.4]" />
             </div>
             <div>
@@ -171,9 +181,33 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                   const discountAmount = origPrice > currentPrice ? origPrice - currentPrice : 0;
                   const isAdded = addedProductId === product.id;
 
+                  // Defensive rating calculation
+                  const rawRating = typeof product.rating === 'number' ? product.rating : Number(product.rating);
+                  const formattedRating = !isNaN(rawRating) && rawRating > 0 ? rawRating.toFixed(1) : '5.0';
+                  const reviewCount = typeof product.reviewCount === 'number' ? product.reviewCount : Number(product.reviewCount) || 12;
+
+                  // Defensive features list
+                  const featuresList: string[] = Array.isArray(product.features)
+                    ? product.features.filter((f) => typeof f === 'string' && f.trim().length > 0)
+                    : typeof product.features === 'string' && (product.features as string).trim()
+                    ? (product.features as string).split(',').map((s) => s.trim()).filter(Boolean)
+                    : [];
+
+                  // Defensive sizes / weight
+                  const sizesList: string[] = Array.isArray(product.sizes)
+                    ? product.sizes.filter((s) => typeof s === 'string' && s.trim().length > 0)
+                    : typeof product.sizes === 'string' && (product.sizes as string).trim()
+                    ? (product.sizes as string).split(',').map((s) => s.trim()).filter(Boolean)
+                    : [];
+                  const displayWeight = product.weight || sizesList[0] || 'স্ট্যান্ডার্ড প্যাক';
+
+                  // Safe Image Fallback
+                  const imgSrc = product.image || (Array.isArray(product.images) && product.images[0]) || 'https://images.unsplash.com/photo-1546548970-71785318a17b?auto=format&fit=crop&q=80&w=400';
+                  const inStock = product.inStock !== false;
+
                   return (
                     <div
-                      key={product.id}
+                      key={product.id || `compare-slot-${idx}`}
                       className="bg-white rounded-xl border border-stone-200 shadow-xs hover:shadow-md transition-all p-3 sm:p-4 flex flex-col justify-between relative group"
                       id={`compare-slot-${idx}-${product.id}`}
                     >
@@ -202,8 +236,8 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                         }}
                       >
                         <img
-                          src={product.image || (product.images && product.images[0])}
-                          alt={product.name}
+                          src={imgSrc}
+                          alt={product.name || 'Product'}
                           className="w-full h-full object-contain mix-blend-multiply group-hover/img:scale-105 transition-transform duration-300"
                           loading="lazy"
                           referrerPolicy="no-referrer"
@@ -225,7 +259,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                         {/* Title & Category */}
                         <div>
                           <div className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
-                            {product.category}
+                            {product.category || 'General'}
                           </div>
                           <h4 
                             className="text-sm font-bold text-stone-900 line-clamp-2 hover:text-[#f38018] transition-colors cursor-pointer leading-snug mt-0.5"
@@ -234,7 +268,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                               onClose();
                             }}
                           >
-                            {product.name}
+                            {product.name || 'নামবিহীন পণ্য'}
                           </h4>
                         </div>
 
@@ -267,9 +301,9 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                             <span className="text-stone-500 text-[11px]">রেটিং:</span>
                             <div className="flex items-center gap-1 font-semibold text-stone-800">
                               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                              <span>{product.rating ? product.rating.toFixed(1) : '5.0'}</span>
+                              <span>{formattedRating}</span>
                               <span className="text-stone-400 text-[10px]">
-                                ({product.reviewCount || 12} রিভিউ)
+                                ({reviewCount} রিভিউ)
                               </span>
                             </div>
                           </div>
@@ -278,11 +312,11 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           <div className="flex items-center justify-between py-1 border-b border-stone-50">
                             <span className="text-stone-500 text-[11px]">স্টক স্ট্যাটাস:</span>
                             <span className={`font-bold text-[11px] px-2 py-0.5 rounded-full ${
-                              product.inStock 
+                              inStock 
                                 ? 'bg-emerald-100 text-emerald-800' 
                                 : 'bg-rose-100 text-rose-800'
                             }`}>
-                              {product.inStock ? 'In Stock (মজুদ আছে)' : 'Stock Out (মজুদ নেই)'}
+                              {inStock ? 'In Stock (মজুদ আছে)' : 'Stock Out (মজুদ নেই)'}
                             </span>
                           </div>
 
@@ -290,7 +324,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           <div className="flex items-center justify-between py-1 border-b border-stone-50">
                             <span className="text-stone-500 text-[11px]">পরিমাণ/ওজন:</span>
                             <span className="font-semibold text-stone-800 text-[11px]">
-                              {product.weight || (product.sizes && product.sizes[0]) || 'স্ট্যান্ডার্ড প্যাক'}
+                              {displayWeight}
                             </span>
                           </div>
 
@@ -305,11 +339,11 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           )}
 
                           {/* Key Features */}
-                          {product.features && product.features.length > 0 && (
+                          {featuresList.length > 0 && (
                             <div className="pt-1.5">
                               <span className="text-stone-500 text-[11px] block mb-1">মূল বৈশিষ্ট্য:</span>
                               <ul className="space-y-1">
-                                {product.features.slice(0, 3).map((feat, fIdx) => (
+                                {featuresList.slice(0, 3).map((feat, fIdx) => (
                                   <li key={fIdx} className="flex items-start gap-1.5 text-[11px] text-stone-600 leading-tight">
                                     <Check className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
                                     <span>{feat}</span>
@@ -326,11 +360,11 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleAddToCartClick(product)}
-                          disabled={!product.inStock}
+                          disabled={!inStock}
                           className={`w-full py-2 px-3 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
                             isAdded
                               ? 'bg-emerald-600 border-emerald-600 text-white'
-                              : !product.inStock
+                              : !inStock
                               ? 'bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed'
                               : 'border-[#f38018] text-[#f38018] hover:bg-[#f38018] hover:text-white bg-white'
                           }`}
@@ -351,7 +385,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleBuyNowClick(product)}
-                          disabled={!product.inStock}
+                          disabled={!inStock}
                           className="w-full py-2 px-3 rounded-xl bg-[#f38018] hover:bg-[#e0700c] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Zap className="w-3.5 h-3.5 fill-current" />
@@ -451,48 +485,51 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                   কোনো পণ্য পাওয়া যায়নি বা সবগুলো ইতোমধ্যে যোগ করা হয়েছে।
                 </div>
               ) : (
-                availableToAdd.map((prod) => (
-                  <div
-                    key={prod.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl border border-stone-100 hover:border-orange-200 hover:bg-orange-50/40 transition-all cursor-pointer group"
-                    onClick={() => {
-                      if (onAddProduct) {
-                        onAddProduct(prod);
-                      }
-                      setIsPickerOpen(false);
-                      setPickerSearch('');
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-stone-50 border border-stone-100 p-1 flex items-center justify-center shrink-0">
-                        <img
-                          src={prod.image || (prod.images && prod.images[0])}
-                          alt={prod.name}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase">
-                          {prod.category}
-                        </span>
-                        <h5 className="text-xs sm:text-sm font-bold text-stone-800 line-clamp-1 group-hover:text-[#f38018] transition-colors">
-                          {prod.name}
-                        </h5>
-                        <div className="text-xs font-bold text-[#f38018] font-bengali">
-                          ৳{Number(prod.price || 0).toLocaleString()}
+                availableToAdd.map((prod) => {
+                  const prodImg = prod.image || (Array.isArray(prod.images) && prod.images[0]) || 'https://images.unsplash.com/photo-1546548970-71785318a17b?auto=format&fit=crop&q=80&w=400';
+                  return (
+                    <div
+                      key={prod.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl border border-stone-100 hover:border-orange-200 hover:bg-orange-50/40 transition-all cursor-pointer group"
+                      onClick={() => {
+                        if (onAddProduct) {
+                          onAddProduct(prod);
+                        }
+                        setIsPickerOpen(false);
+                        setPickerSearch('');
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-stone-50 border border-stone-100 p-1 flex items-center justify-center shrink-0">
+                          <img
+                            src={prodImg}
+                            alt={prod.name || 'Product'}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="text-left">
+                          <span className="text-[10px] font-bold text-stone-400 uppercase">
+                            {prod.category || 'General'}
+                          </span>
+                          <h5 className="text-xs sm:text-sm font-bold text-stone-800 line-clamp-1 group-hover:text-[#f38018] transition-colors">
+                            {prod.name || 'Unnamed Product'}
+                          </h5>
+                          <div className="text-xs font-bold text-[#f38018] font-bengali">
+                            ৳{Number(prod.price || 0).toLocaleString()}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <button
-                      type="button"
-                      className="px-3 py-1.5 rounded-lg bg-[#f38018] hover:bg-[#e0700c] text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 font-bengali"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>যোগ করুন</span>
-                    </button>
-                  </div>
-                ))
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg bg-[#f38018] hover:bg-[#e0700c] text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 font-bengali"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>যোগ করুন</span>
+                      </button>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -501,3 +538,4 @@ export const CompareModal: React.FC<CompareModalProps> = ({
     </div>
   );
 };
+

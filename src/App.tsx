@@ -204,7 +204,10 @@ export default function App() {
     const saved = localStorage.getItem('albarakah_premium_compare');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((p) => p && typeof p === 'object' && p.id);
+        }
       } catch (e) {
         console.error('Failed to parse compare list', e);
       }
@@ -1068,18 +1071,21 @@ export default function App() {
 
   // Compare Operations (Limit: max 3 products)
   const handleToggleCompare = (product: Product) => {
+    if (!product || !product.id) return;
     setCompareProducts((prev) => {
-      const exists = prev.some((p) => p.id === product.id);
+      const safePrev = Array.isArray(prev) ? prev.filter((p) => p && typeof p === 'object' && p.id) : [];
+      const exists = safePrev.some((p) => p.id === product.id);
       if (exists) {
-        showToast(`তুলনা তালিকা থেকে সরানো হয়েছে: "${product.name.slice(0, 18)}..."`);
-        return prev.filter((p) => p.id !== product.id);
+        const prodName = product.name ? product.name.slice(0, 18) : 'পণ্য';
+        showToast(`তুলনা তালিকা থেকে সরানো হয়েছে: "${prodName}..."`);
+        return safePrev.filter((p) => p.id !== product.id);
       } else {
-        if (prev.length >= 3) {
+        if (safePrev.length >= 3) {
           showToast('সর্বোচ্চ ৩টি পণ্য একসাথে তুলনা করা যায় (Max 3 products)');
-          return prev;
+          return safePrev;
         }
-        showToast(`তুলনা তালিকায় যুক্ত হয়েছে (${prev.length + 1}/3)`);
-        return [...prev, product];
+        showToast(`তুলনা তালিকায় যুক্ত হয়েছে (${safePrev.length + 1}/3)`);
+        return [...safePrev, product];
       }
     });
   };
