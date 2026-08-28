@@ -712,11 +712,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // Sanitize and compress any base64 images with safety timeout
       const compressedImages = await Promise.all(
         prodFormImages.map(async (img) => {
-          if (img && img.startsWith('data:image/') && img.length > 25000) {
+          if (img && img.startsWith('data:image/') && img.length > 50000) {
             try {
               const timeoutCompress = Promise.race([
-                compressDataUrl(img, 600, 600, 0.70),
-                new Promise<string>((resolve) => setTimeout(() => resolve(img), 800))
+                compressDataUrl(img, 700, 700, 0.75),
+                new Promise<string>((resolve) => setTimeout(() => resolve(img), 600))
               ]);
               return await timeoutCompress;
             } catch {
@@ -759,7 +759,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         showToast(`"${cleanName}" তথ্য সফলভাবে আপডেট হয়েছে!`);
       } else {
         const newP: Product = {
-          id: `prod-${Date.now()}`,
+          id: `prod-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           name: cleanName,
           slug: finalSlug,
           category: prodFormCategory,
@@ -779,12 +779,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           tags: [prodFormCategory.toLowerCase(), 'new-product'],
         };
         await onUpdateProducts([newP, ...products]);
-        showToast(`নতুন প্রোডাক্ট "${newP.name}" ক্লাউড ডাটাবেজে সফলভাবে যোগ করা হয়েছে!`);
+        showToast(`নতুন প্রোডাক্ট "${newP.name}" সফলভাবে যোগ করা হয়েছে!`);
       }
       setIsProductModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save product:', err);
-      setProductFormError('প্রোডাক্ট সংরক্ষণে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+      setProductFormError(`প্রোডাক্ট সংরক্ষণে সমস্যা হয়েছে: ${err?.message || 'অনুগ্রহ করে আবার চেষ্টা করুন'}`);
     } finally {
       setIsSavingProduct(false);
     }
