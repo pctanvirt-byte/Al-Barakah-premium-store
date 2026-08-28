@@ -52,6 +52,7 @@ import { CategorySlider } from './components/CategorySlider';
 import { CategoryAdminModal } from './components/CategoryAdminModal';
 import { BannerAdminModal } from './components/BannerAdminModal';
 import { FloatingCartWidget } from './components/FloatingCartWidget';
+import { FloatingWhatsAppButton } from './components/FloatingWhatsAppButton';
 import { ProductFilters } from './components/ProductFilters';
 import { ProductCard } from './components/ProductCard';
 import { ProductModal } from './components/ProductModal';
@@ -2094,6 +2095,14 @@ export default function App() {
         currency={currency}
         onOpenCart={() => setActivePageView('CART')}
       />
+
+      {/* Floating WhatsApp Quick Direct Chat Support Button */}
+      {!isAdminView && (
+        <FloatingWhatsAppButton
+          phoneNumber={bkashConfig.personalNumber || '01316534171'}
+          shopName="Al Barakah Premium"
+        />
+      )}
 
       {/* 🚀 High-Converting Facebook Ad Sales Landing Page */}
       {landingProduct && (
