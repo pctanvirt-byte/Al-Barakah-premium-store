@@ -390,7 +390,10 @@ export const subscribeToReviews = (callback: (reviews: ProductReview[]) => void,
       callback(revs);
     },
     (err) => {
-      console.warn('Reviews Firestore snapshot warning:', err);
+      // Quietly handle daily quota limits using Firestore's persistent offline IndexedDB cache
+      if (!String(err).includes('Quota limit exceeded')) {
+        console.warn('Reviews Firestore snapshot notice:', err);
+      }
       try {
         const cached = localStorage.getItem('albarakah_backup_reviews');
         if (cached) {
