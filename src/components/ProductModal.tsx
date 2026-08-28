@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, 
   ShoppingBag, 
@@ -89,6 +90,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   onAddReview,
 }) => {
   const [selectedImgIndex, setSelectedImgIndex] = useState<number>(0);
+  const [slideDirection, setSlideDirection] = useState<'right' | 'left'>('right');
   const [quantity, setQuantity] = useState<number>(1);
   const [addedAnimation, setAddedAnimation] = useState<boolean>(false);
   const [selectedVariant, setSelectedVariant] = useState<string>('');
@@ -186,11 +188,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   };
 
   const handleNextImage = () => {
+    setSlideDirection('right');
     setSelectedImgIndex((prev) => (prev + 1) % galleryImages.length);
   };
 
   const handlePrevImage = () => {
+    setSlideDirection('left');
     setSelectedImgIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
+  };
+
+  const handleThumbnailClick = (idx: number) => {
+    if (idx !== selectedImgIndex) {
+      setSlideDirection(idx > selectedImgIndex ? 'right' : 'left');
+      setSelectedImgIndex(idx);
+    }
   };
 
   const handleRelatedProductClick = (item: Product) => {
@@ -320,10 +331,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setSelectedImgIndex(idx)}
+                    onClick={() => handleThumbnailClick(idx)}
                     className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-white p-1.5 flex items-center justify-center ${
                       selectedImgIndex === idx
-                        ? 'border-[#f38018] shadow-xs ring-2 ring-[#f38018]/20'
+                        ? 'border-[#f38018] shadow-xs ring-2 ring-[#f38018]/20 scale-102'
                         : 'border-stone-200 opacity-75 hover:opacity-100 hover:border-stone-300'
                     }`}
                   >
@@ -340,20 +351,57 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 ))}
               </div>
 
-              {/* Center Main Product Image */}
+              {/* Center Main Product Image with Hero Banner Right-to-Left Sliding Animation */}
               <div className="relative flex-1 aspect-square max-h-[380px] sm:max-h-[460px] rounded-xl overflow-hidden bg-white border border-stone-100 flex items-center justify-center p-3">
-                <img
-                  src={currentActiveImage}
-                  alt={product.name}
-                  className="w-full h-full object-contain transition-transform duration-300 hover:scale-105"
-                  referrerPolicy="no-referrer"
-                />
+                <AnimatePresence initial={false} mode="wait">
+                  <motion.div
+                    key={selectedImgIndex}
+                    initial={{
+                      opacity: 0,
+                      x: slideDirection === 'right' ? 80 : -80,
+                      scale: 0.95,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      x: 0,
+                      scale: 1,
+                    }}
+                    exit={{
+                      opacity: 0,
+                      x: slideDirection === 'right' ? -80 : 80,
+                      scale: 0.95,
+                    }}
+                    transition={{
+                      duration: 0.35,
+                      ease: [0.25, 1, 0.5, 1],
+                    }}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.2}
+                    onDragEnd={(_, { offset, velocity }) => {
+                      const swipe = Math.abs(offset.x) * velocity.x;
+                      if (swipe < -100 || offset.x < -40) {
+                        handleNextImage();
+                      } else if (swipe > 100 || offset.x > 40) {
+                        handlePrevImage();
+                      }
+                    }}
+                    className="w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+                  >
+                    <img
+                      src={currentActiveImage}
+                      alt={product.name}
+                      className="w-full h-full object-contain transition-transform duration-300 hover:scale-105 pointer-events-none"
+                      referrerPolicy="no-referrer"
+                    />
+                  </motion.div>
+                </AnimatePresence>
 
                 {/* Slider Prev / Next Arrows */}
                 <button
                   type="button"
                   onClick={handlePrevImage}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/95 hover:bg-white shadow-md border border-stone-200 text-stone-700 flex items-center justify-center transition-all cursor-pointer"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/95 hover:bg-white shadow-md border border-stone-200 text-stone-700 flex items-center justify-center transition-all cursor-pointer z-10 hover:scale-108 active:scale-95"
                   aria-label="Previous image"
                 >
                   <ChevronLeft className="w-4 h-4 text-stone-700" />
@@ -361,14 +409,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 <button
                   type="button"
                   onClick={handleNextImage}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/95 hover:bg-white shadow-md border border-stone-200 text-stone-700 flex items-center justify-center transition-all cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/95 hover:bg-white shadow-md border border-stone-200 text-stone-700 flex items-center justify-center transition-all cursor-pointer z-10 hover:scale-108 active:scale-95"
                   aria-label="Next image"
                 >
                   <ChevronRight className="w-4 h-4 text-stone-700" />
                 </button>
 
                 {/* Wishlist & Compare Icons */}
-                <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+                <div className="absolute top-3 right-3 flex flex-col gap-2 z-20">
                   <button
                     type="button"
                     onClick={() => onToggleWishlist(product)}
