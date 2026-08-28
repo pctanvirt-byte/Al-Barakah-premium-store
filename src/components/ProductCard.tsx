@@ -5,6 +5,7 @@ import { Product } from '../types';
 interface ProductCardProps {
   product: Product;
   currency?: 'USD' | 'BDT';
+  searchQuery?: string;
   isWishlisted?: boolean;
   onToggleWishlist?: (product: Product) => void;
   isCompared?: boolean;
@@ -16,6 +17,8 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
+  currency = 'BDT',
+  searchQuery = '',
   isWishlisted = false,
   onToggleWishlist,
   isCompared = false,
@@ -128,9 +131,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {product.category}
           </div>
 
-          {/* Product Title */}
+          {/* Product Title with Search Highlight */}
           <h3 className="font-bold text-xs sm:text-sm text-stone-900 line-clamp-2 leading-snug group-hover:text-[#f38018] transition-colors min-h-[2rem] sm:min-h-[2.4rem]">
-            {product.name}
+            {(() => {
+              const query = (searchQuery || '').trim();
+              if (!query || !product.name) {
+                return product.name;
+              }
+
+              // Split search query by space to match multiple words or full phrase
+              const escapedTerms = query
+                .split(/\s+/)
+                .filter(Boolean)
+                .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
+              if (escapedTerms.length === 0) return product.name;
+
+              const regex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+              const parts = product.name.split(regex);
+
+              return parts.map((part, index) =>
+                regex.test(part) ? (
+                  <mark
+                    key={index}
+                    className="bg-amber-200/90 text-stone-900 font-extrabold px-1 py-0.5 rounded-xs shadow-2xs group-hover:text-stone-900"
+                  >
+                    {part}
+                  </mark>
+                ) : (
+                  <React.Fragment key={index}>{part}</React.Fragment>
+                )
+              );
+            })()}
           </h3>
 
           {/* Pricing & Strikeout */}

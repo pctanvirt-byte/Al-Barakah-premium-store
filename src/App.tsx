@@ -1617,6 +1617,7 @@ export default function App() {
                   key={product.id}
                   product={product}
                   currency={currency}
+                  searchQuery={filters.searchQuery}
                   isWishlisted={wishlist.some((p) => p.id === product.id)}
                   onToggleWishlist={handleToggleWishlist}
                   isCompared={compareProducts.some((p) => p.id === product.id)}
