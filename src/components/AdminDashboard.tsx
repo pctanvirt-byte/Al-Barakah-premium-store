@@ -47,7 +47,7 @@ import {
   ZoomIn,
   Loader2
 } from 'lucide-react';
-import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, TopSellingItem, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG } from '../types';
+import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, TopSellingItem, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, SeoConfig, DEFAULT_SEO_CONFIG } from '../types';
 import { Layers, Flame, Truck, Send, CheckCircle, User, Download, Database, HardDriveDownload, RefreshCw } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { DEFAULT_HERO_CONFIG } from './HeroBanner';
@@ -62,6 +62,7 @@ import { LandingPageAdminModal } from './LandingPageAdminModal';
 import { FacebookPixelSettingsModal } from './FacebookPixelSettingsModal';
 import { FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG } from '../types';
 import { BKashSettingsModal } from './BKashSettingsModal';
+import { SeoSettingsModal } from './SeoSettingsModal';
 import { ProfitAnalyticsReports } from './ProfitAnalyticsReports';
 import { DEFAULT_COURIER_CONFIG, dispatchOrderToCourier, sendOrderToSteadfast, sendOrderToPathao } from '../services/courierService';
 import { createFullDatabaseBackup, restoreFullDatabaseBackup, DatabaseBackupPayload, deleteOrderFromDb, deleteProductFromDb, testFirestoreConnection, FirestoreConnectionStatus } from '../services/firebaseService';
@@ -143,6 +144,8 @@ interface AdminDashboardProps {
   onUpdateFacebookPixelConfig?: (config: FacebookPixelConfig) => void;
   bkashConfig?: BKashPaymentConfig;
   onUpdateBkashConfig?: (config: BKashPaymentConfig) => void;
+  seoConfig?: SeoConfig;
+  onUpdateSeoConfig?: (config: SeoConfig) => Promise<void> | void;
   onPreviewLandingPage?: (product: Product) => void;
 }
 
@@ -180,6 +183,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateFacebookPixelConfig,
   bkashConfig = DEFAULT_BKASH_CONFIG,
   onUpdateBkashConfig,
+  seoConfig = DEFAULT_SEO_CONFIG,
+  onUpdateSeoConfig,
   onPreviewLandingPage,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -187,6 +192,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isCourierModalOpen, setIsCourierModalOpen] = useState(false);
   const [isPixelModalOpen, setIsPixelModalOpen] = useState(false);
   const [isBkashModalOpen, setIsBkashModalOpen] = useState(false);
+  const [isSeoModalOpen, setIsSeoModalOpen] = useState(false);
   const [courierDispatchingOrderId, setCourierDispatchingOrderId] = useState<string | null>(null);
 
   // Facebook Ad & Landing Page Studio State
@@ -5239,6 +5245,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
+                {/* Global SEO & Social Sharing Management Card */}
+                <div className="pt-4 border-t border-stone-200">
+                  <div className="p-4 sm:p-5 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-amber-500/10 rounded-2xl border border-emerald-300/80 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-emerald-800" />
+                          <span className="text-xs font-bold text-stone-900">
+                            Global SEO, Meta Description & Social Share Banners (গ্লোবাল এসইও ও সোশ্যাল শেয়ার)
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-stone-950 uppercase">
+                            Dynamic
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-600 leading-relaxed">
+                          গুগল সার্চ ও ফেসবুক/হোয়াটসঅ্যাপে লিংক শেয়ারিং ব্যানার, ব্রাউজার টাইটেল এবং মেটা ডেসক্রিপশন ডাইনামিকভাবে পরিবর্তন করুন কোনো কোড এডিট ছাড়াই।
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-stone-700 border border-stone-200 truncate max-w-xs">
+                            Title: {seoConfig?.metaTitle || 'Al Barakah Premium'}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
+                            {seoConfig?.ogImage ? '✓ Custom Social Banner' : 'Default Banner'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsSeoModalOpen(true)}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0a5c36] to-[#08482a] hover:from-[#08482a] hover:to-[#053828] text-white text-xs font-bold shadow-xs cursor-pointer transition-all flex items-center gap-2 shrink-0"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>SEO & Share Studio</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Database Backup & Disaster Recovery Card */}
                 <div className="pt-4 border-t border-stone-200">
                   <div className="p-4 sm:p-5 bg-stone-50 rounded-2xl border border-stone-200 space-y-4">
@@ -6951,6 +6996,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             onUpdateBkashConfig(cfg);
           }
           showToast('bKash Payment settings saved successfully!');
+        }}
+      />
+
+      {/* Modal: Global SEO, Meta Description & Social Share Manager */}
+      <SeoSettingsModal
+        isOpen={isSeoModalOpen}
+        onClose={() => setIsSeoModalOpen(false)}
+        seoConfig={seoConfig}
+        onSave={async (newSeo) => {
+          if (onUpdateSeoConfig) {
+            await onUpdateSeoConfig(newSeo);
+          }
+          showToast('গ্লোবাল এসইও ও মেটা সেটিংস সফলভাবে সেভ হয়েছে!');
+        }}
+        onOpenCrop={(imgSrc) => {
+          setCropModal({
+            isOpen: true,
+            imageSrc: imgSrc,
+            type: 'product',
+          });
         }}
       />
 

@@ -16,7 +16,7 @@ import {
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Product, Order, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, FacebookPixelConfig, BKashPaymentConfig, CouponItem } from '../types';
+import { Product, Order, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, FacebookPixelConfig, BKashPaymentConfig, CouponItem, SeoConfig } from '../types';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { compressDataUrl } from '../utils/imageCompressor';
 
@@ -547,7 +547,7 @@ export const seedInitialCategoriesIfEmpty = async (initialCategories: CategoryIt
   }
 };
 
-// --- SETTINGS (Review Toggle, Coupon Toggle & Codes, Banners, Top Selling, Courier Config, Delivery Config, Facebook Pixel, bKash Config) ---
+// --- SETTINGS (Review Toggle, Coupon Toggle & Codes, Banners, Top Selling, Courier Config, Delivery Config, Facebook Pixel, bKash Config, SEO Config) ---
 export const subscribeToStoreSettings = (
   callback: (settings: {
     enableCustomerReviews?: boolean;
@@ -559,6 +559,7 @@ export const subscribeToStoreSettings = (
     deliveryConfig?: DeliveryConfig;
     facebookPixelConfig?: FacebookPixelConfig;
     bkashConfig?: BKashPaymentConfig;
+    seoConfig?: SeoConfig;
   }) => void
 ) => {
   const docRef = doc(db, SETTINGS_COLLECTION, 'general');
@@ -595,6 +596,7 @@ export const saveStoreSettingsToDb = async (settings: {
   deliveryConfig?: DeliveryConfig;
   facebookPixelConfig?: FacebookPixelConfig;
   bkashConfig?: BKashPaymentConfig;
+  seoConfig?: SeoConfig;
 }): Promise<void> => {
   try {
     await ensureFirebaseAuth();

@@ -335,6 +335,26 @@ export interface CouponItem {
   usageCount: number;
 }
 
+export interface SeoConfig {
+  metaTitle: string;
+  metaDescription: string;
+  ogImage: string;
+  keywords?: string;
+  siteName?: string;
+  canonicalUrl?: string;
+  twitterHandle?: string;
+}
+
+export const DEFAULT_SEO_CONFIG: SeoConfig = {
+  metaTitle: 'Al Barakah Premium — Luxury Islamic Lifestyle & Organic Products',
+  metaDescription: 'An elegant, premium eCommerce platform for Al Barakah Premium in Bangladesh, featuring pure organic honey, extra virgin mustard oil, luxury attars, sunnah items, and premium lifestyle.',
+  ogImage: 'https://images.unsplash.com/photo-1546548970-71785318a17b?auto=format&fit=crop&q=80&w=1200',
+  keywords: 'Al Barakah Premium, Organic Mustard Oil, Pure Honey, Kalo Jeera Oil, Luxury Attar, Islamic Lifestyle, Bangladesh Organic Food',
+  siteName: 'Al Barakah Premium',
+  canonicalUrl: 'https://albarakahpremium.com',
+  twitterHandle: '@albarakahpremium',
+};
+
 export const DEFAULT_BKASH_CONFIG: BKashPaymentConfig = {
   enabled: true,
   mode: 'MANUAL',

@@ -21,7 +21,7 @@ import {
   Shield,
   ArrowRight
 } from 'lucide-react';
-import { Product, CartItem, Order, FilterState, Category, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG, CouponItem } from './types';
+import { Product, CartItem, Order, FilterState, Category, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG, CouponItem, SeoConfig, DEFAULT_SEO_CONFIG } from './types';
 import { INITIAL_PRODUCTS } from './data/products';
 import { INITIAL_CATEGORIES } from './data/categories';
 import { DEFAULT_TOP_SELLING_CONFIG } from './types/topSelling';
@@ -284,10 +284,77 @@ export default function App() {
   // --- bKash Payment & PGW API Gateway Configuration (Firestore Synced) ---
   const [bkashConfig, setBkashConfig] = useState<BKashPaymentConfig>(DEFAULT_BKASH_CONFIG);
 
+  // --- Global SEO & Social Sharing Configuration (Firestore Synced) ---
+  const [seoConfig, setSeoConfig] = useState<SeoConfig>(() => {
+    try {
+      const saved = localStorage.getItem('albarakah_backup_seo_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && parsed.metaTitle) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_SEO_CONFIG;
+  });
+
   // Initialize Facebook Pixel and Domain Verification whenever config changes
   useEffect(() => {
     initFacebookPixel(facebookPixelConfig);
   }, [facebookPixelConfig]);
+
+  // Dynamically update document title, meta tags, and OpenGraph/Twitter social sharing tags
+  useEffect(() => {
+    if (!seoConfig) return;
+
+    // 1. Update Document Title
+    if (seoConfig.metaTitle) {
+      document.title = seoConfig.metaTitle;
+    }
+
+    // Helper function to safely create or update meta tag
+    const updateMetaTag = (attrName: string, attrVal: string, content: string) => {
+      if (!content) return;
+      let el = document.querySelector(`meta[${attrName}="${attrVal}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attrName, attrVal);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    // Standard SEO Tags
+    updateMetaTag('name', 'description', seoConfig.metaDescription || '');
+    if (seoConfig.keywords) {
+      updateMetaTag('name', 'keywords', seoConfig.keywords);
+    }
+
+    // OpenGraph Tags (Facebook, WhatsApp, LinkedIn, Messenger, Telegram)
+    updateMetaTag('property', 'og:title', seoConfig.metaTitle || '');
+    updateMetaTag('property', 'og:description', seoConfig.metaDescription || '');
+    if (seoConfig.ogImage) {
+      updateMetaTag('property', 'og:image', seoConfig.ogImage);
+    }
+    if (seoConfig.siteName) {
+      updateMetaTag('property', 'og:site_name', seoConfig.siteName);
+    }
+    if (seoConfig.canonicalUrl) {
+      updateMetaTag('property', 'og:url', seoConfig.canonicalUrl);
+    }
+    updateMetaTag('property', 'og:type', 'website');
+
+    // Twitter Card Tags
+    updateMetaTag('name', 'twitter:card', 'summary_large_image');
+    updateMetaTag('name', 'twitter:title', seoConfig.metaTitle || '');
+    updateMetaTag('name', 'twitter:description', seoConfig.metaDescription || '');
+    if (seoConfig.ogImage) {
+      updateMetaTag('name', 'twitter:image', seoConfig.ogImage);
+    }
+    if (seoConfig.twitterHandle) {
+      updateMetaTag('name', 'twitter:site', seoConfig.twitterHandle);
+    }
+  }, [seoConfig]);
 
   // --- Real-Time Firestore Loading Readiness ---
   const [isProductsLoaded, setIsProductsLoaded] = useState(false);
@@ -501,6 +568,15 @@ export default function App() {
           ...settings.bkashConfig,
           gateway: { ...prev.gateway, ...(settings.bkashConfig?.gateway || {}) },
         }));
+      }
+      if (settings.seoConfig && typeof settings.seoConfig === 'object') {
+        setSeoConfig((prev) => ({
+          ...prev,
+          ...settings.seoConfig,
+        }));
+        try {
+          localStorage.setItem('albarakah_backup_seo_config', JSON.stringify(settings.seoConfig));
+        } catch (e) {}
       }
       setIsSettingsLoaded(true);
     });
@@ -1258,6 +1334,15 @@ export default function App() {
         onUpdateFacebookPixelConfig={handleUpdateFacebookPixelConfig}
         bkashConfig={bkashConfig}
         onUpdateBkashConfig={handleUpdateBkashConfig}
+        seoConfig={seoConfig}
+        onUpdateSeoConfig={async (newSeo) => {
+          setSeoConfig(newSeo);
+          try {
+            localStorage.setItem('albarakah_backup_seo_config', JSON.stringify(newSeo));
+          } catch (e) {}
+          await saveStoreSettingsToDb({ seoConfig: newSeo });
+          showToast('গ্লোবাল এসইও ও সোশ্যাল শেয়ার সেটিংস সফলভাবে সেভ হয়েছে!');
+        }}
         onPreviewLandingPage={(prod) => {
           setLandingProduct(prod);
         }}
