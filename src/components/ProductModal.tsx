@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Product, Category, CategoryItem, ProductReview } from '../types';
 import { parseVariantOptions, getCalculatedPrice } from '../utils/pricing';
+import { getSmartRelatedProducts } from '../utils/relatedProducts';
 import { Navbar } from './Navbar';
 import { TakaIcon } from './TakaIcon';
 
@@ -161,17 +162,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100)
     : 0;
 
-  // Filter related products
-  const relatedProducts = allProducts
-    .filter((p) => p.id !== product.id && (p.category === product.category || !product.category))
-    .slice(0, 4);
-
-  const displayRelated = relatedProducts.length >= 4 
-    ? relatedProducts 
-    : [
-        ...relatedProducts, 
-        ...allProducts.filter((p) => p.id !== product.id && !relatedProducts.some(r => r.id === p.id)).slice(0, 4 - relatedProducts.length)
-      ];
+  // Calculate smart related products using relevance algorithm
+  const displayRelated = getSmartRelatedProducts(product, allProducts || [], 4);
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, prev + delta));
@@ -828,7 +820,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 <div className="text-center py-6 bg-stone-50/50 rounded-xl border border-dashed border-stone-200 space-y-2">
                   <MessageSquare className="w-6 h-6 text-stone-300 mx-auto" />
                   <p className="text-xs font-medium text-stone-600">
-                    এখনও কোনো রিভিউ দেওয়া হয়নি। আপনিই প্রথম রিভিউ দিন!
+                    No reviews yet. Be the first to share your thoughts!
                   </p>
                   <button
                     type="button"
