@@ -126,9 +126,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Product Info */}
         <div className="mt-2 sm:mt-2.5 text-left">
-          {/* Category */}
-          <div className="text-[10px] sm:text-[11px] font-semibold text-stone-400 uppercase tracking-wider line-clamp-1 mb-0.5">
-            {product.category}
+          {/* Category & Subcategory */}
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold text-stone-400 uppercase tracking-wider line-clamp-1 mb-0.5">
+            <span>{product.category}</span>
+            {product.subcategory && (
+              <>
+                <span className="text-stone-300">•</span>
+                <span className="text-emerald-700 font-bold lowercase first-letter:uppercase">{product.subcategory}</span>
+              </>
+            )}
           </div>
 
           {/* Product Title with Search Highlight */}

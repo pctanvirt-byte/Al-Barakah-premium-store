@@ -24,6 +24,7 @@ import {
 import { Product, CartItem, Order, FilterState, Category, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG, CouponItem, SeoConfig, DEFAULT_SEO_CONFIG } from './types';
 import { INITIAL_PRODUCTS } from './data/products';
 import { INITIAL_CATEGORIES } from './data/categories';
+import { getSubcategoriesForCategory } from './data/subcategories';
 import { DEFAULT_TOP_SELLING_CONFIG } from './types/topSelling';
 import { DEFAULT_COURIER_CONFIG } from './services/courierService';
 import { initFacebookPixel, trackFbPageView, trackFbViewContent, trackFbAddToCart, trackFbInitiateCheckout, trackFbPurchase } from './services/facebookPixelService';
@@ -1156,13 +1157,22 @@ export default function App() {
       if (filters.category !== 'All' && prod.category !== filters.category) {
         return false;
       }
+      // Subcategory
+      if (filters.subcategory && filters.subcategory !== 'all') {
+        const pSub = (prod.subcategory || '').trim().toLowerCase();
+        const fSub = filters.subcategory.trim().toLowerCase();
+        if (!pSub || pSub !== fSub) {
+          return false;
+        }
+      }
       // Search
       if (filters.searchQuery) {
         const q = filters.searchQuery.toLowerCase();
         const matchesName = prod.name.toLowerCase().includes(q);
         const matchesCategory = prod.category.toLowerCase().includes(q);
-        const matchesTags = prod.tags.some((t) => t.toLowerCase().includes(q));
-        if (!matchesName && !matchesCategory && !matchesTags) {
+        const matchesSubcategory = prod.subcategory ? prod.subcategory.toLowerCase().includes(q) : false;
+        const matchesTags = (prod.tags || []).some((t) => t.toLowerCase().includes(q));
+        if (!matchesName && !matchesCategory && !matchesSubcategory && !matchesTags) {
           return false;
         }
       }
@@ -1503,47 +1513,122 @@ export default function App() {
               <main id="catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
         {/* Section Header & Sort controls (shown when filtering by category or searching) */}
         {(filters.category !== 'All' || filters.searchQuery) && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 border-b border-stone-200/80">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
-                  {filters.category === 'All' ? 'All Products' : `${filters.category}`}
-                </h2>
-                {filters.searchQuery && (
-                  <span className="text-xs font-normal text-stone-500">
-                    - "{filters.searchQuery}"
-                  </span>
-                )}
+          <div className="space-y-4 pb-4 mb-6 border-b border-stone-200/80">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
+                    {filters.category === 'All' ? 'All Products' : `${filters.category}`}
+                  </h2>
+                  {filters.searchQuery && (
+                    <span className="text-xs font-normal text-stone-500">
+                      - "{filters.searchQuery}"
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
+                  Showing {filteredProducts.length} premium items with doorstep delivery
+                </p>
               </div>
-              <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
-                Showing {filteredProducts.length} premium items with doorstep delivery
-              </p>
+
+              {/* Sort Dropdown & Back to All */}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  className="text-xs font-bold text-stone-600 hover:text-stone-900 px-3 py-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  All Categories
+                </button>
+                <div className="flex items-center gap-1.5 bg-white border border-stone-200/90 rounded-lg px-2.5 py-1.5 shadow-xs">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-stone-400" />
+                  <label className="text-xs text-stone-500 font-medium hidden sm:inline">Sort by:</label>
+                  <select
+                    value={filters.sortBy}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value as any }))}
+                    className="text-xs font-semibold text-stone-800 bg-transparent focus:outline-none cursor-pointer"
+                  >
+                    <option value="featured">Featured</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="rating">Top Rated</option>
+                    <option value="newest">New Arrivals</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
-            {/* Sort Dropdown & Back to All */}
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <button
-                onClick={() => setFilters(DEFAULT_FILTERS)}
-                className="text-xs font-bold text-stone-600 hover:text-stone-900 px-3 py-1.5 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 transition-colors cursor-pointer"
-              >
-                All Categories
-              </button>
-              <div className="flex items-center gap-1.5 bg-white border border-stone-200/90 rounded-lg px-2.5 py-1.5 shadow-xs">
-                <ArrowUpDown className="w-3.5 h-3.5 text-stone-400" />
-                <label className="text-xs text-stone-500 font-medium hidden sm:inline">Sort by:</label>
-                <select
-                  value={filters.sortBy}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value as any }))}
-                  className="text-xs font-semibold text-stone-800 bg-transparent focus:outline-none cursor-pointer"
-                >
-                  <option value="featured">Featured</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="rating">Top Rated</option>
-                  <option value="newest">New Arrivals</option>
-                </select>
-              </div>
-            </div>
+            {/* Sub-category Filter Tabs for Medicine & Health (and other subcategory-enabled categories) */}
+            {(() => {
+              const availableSubs = getSubcategoriesForCategory(filters.category);
+              if (availableSubs.length === 0) return null;
+
+              return (
+                <div className="bg-stone-50/80 p-3 sm:p-4 rounded-2xl border border-stone-200/90 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#0a5c36]" />
+                      Select Sub-category:
+                    </span>
+                    {filters.subcategory && filters.subcategory !== 'all' && (
+                      <button
+                        onClick={() => setFilters((prev) => ({ ...prev, subcategory: undefined }))}
+                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                      >
+                        Show All
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {/* All Subcategories Button */}
+                    <button
+                      type="button"
+                      onClick={() => setFilters((prev) => ({ ...prev, subcategory: undefined }))}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                        !filters.subcategory || filters.subcategory === 'all'
+                          ? 'bg-[#0a5c36] text-white shadow-xs'
+                          : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200'
+                      }`}
+                    >
+                      <span>All Items</span>
+                    </button>
+
+                    {/* Dynamic Subcategory Chips */}
+                    {availableSubs.map((sub) => {
+                      const isSelected = filters.subcategory?.trim().toLowerCase() === sub.name.trim().toLowerCase();
+                      const matchCount = products.filter((p) => {
+                        if (p.category?.trim().toLowerCase() !== filters.category.trim().toLowerCase()) return false;
+                        const pSub = (p.subcategory || '').trim().toLowerCase();
+                        const sName = sub.name.trim().toLowerCase();
+                        return pSub === sName;
+                      }).length;
+
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => setFilters((prev) => ({ ...prev, subcategory: sub.name }))}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-[#0a5c36] text-white shadow-xs ring-2 ring-emerald-600/30'
+                              : 'bg-white text-stone-700 hover:bg-emerald-50 hover:text-emerald-900 border border-stone-200 hover:border-emerald-300'
+                          }`}
+                        >
+                          <span>{sub.name}</span>
+                          {matchCount > 0 && (
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                              isSelected ? 'bg-[#D4AF37] text-stone-950' : 'bg-stone-100 text-stone-600'
+                            }`}>
+                              {matchCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1685,22 +1770,34 @@ export default function App() {
               })}
             </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="bg-white rounded-xl border border-stone-200/80 p-12 text-center space-y-4 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center text-stone-400 mx-auto">
-                <ShoppingBag className="w-6 h-6" />
+            <div className="bg-white rounded-2xl border border-stone-200/90 p-12 text-center space-y-4 shadow-xs max-w-md mx-auto my-8">
+              <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center text-stone-400 mx-auto">
+                <ShoppingBag className="w-7 h-7" />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <h3 className="font-bold text-stone-900 text-base">No Products Found</h3>
-                <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                  We couldn't find any products matching your active category or search query.
+                <p className="text-xs text-stone-500 max-w-xs mx-auto leading-relaxed">
+                  {filters.subcategory
+                    ? `There are currently no products in the "${filters.subcategory}" sub-category.`
+                    : "We couldn't find any products matching your active category or search query."}
                 </p>
               </div>
-              <button
-                onClick={() => setFilters(DEFAULT_FILTERS)}
-                className="px-4 py-2 rounded-lg bg-[#0a5c36] text-white text-xs font-bold hover:bg-[#08482a] transition-colors cursor-pointer shadow-xs"
-              >
-                View All Products
-              </button>
+              <div className="flex items-center justify-center gap-2 pt-2">
+                {filters.subcategory && (
+                  <button
+                    onClick={() => setFilters((prev) => ({ ...prev, subcategory: undefined }))}
+                    className="px-4 py-2 rounded-xl bg-stone-100 text-stone-800 text-xs font-bold hover:bg-stone-200 transition-colors cursor-pointer"
+                  >
+                    View All {filters.category}
+                  </button>
+                )}
+                <button
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  className="px-4 py-2 rounded-xl bg-[#0a5c36] text-white text-xs font-bold hover:bg-[#08482a] transition-colors cursor-pointer shadow-xs"
+                >
+                  View All Products
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">

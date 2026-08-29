@@ -50,6 +50,7 @@ import {
 import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, TopSellingItem, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, SeoConfig, DEFAULT_SEO_CONFIG } from '../types';
 import { Layers, Flame, Truck, Send, CheckCircle, User, Download, Database, HardDriveDownload, RefreshCw } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '../data/categories';
+import { CATEGORY_SUBCATEGORIES, getSubcategoriesForCategory } from '../data/subcategories';
 import { DEFAULT_HERO_CONFIG } from './HeroBanner';
 import { compressImageFile, compressDataUrl } from '../utils/imageCompressor';
 import { ImageCropZoomModal } from './ImageCropZoomModal';
@@ -228,6 +229,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [prodFormName, setProdFormName] = useState('');
   const [prodFormSlug, setProdFormSlug] = useState('');
   const [prodFormCategory, setProdFormCategory] = useState('Organic Foods');
+  const [prodFormSubcategory, setProdFormSubcategory] = useState('');
   const [prodFormPrice, setProdFormPrice] = useState('15');
   const [prodFormCostPrice, setProdFormCostPrice] = useState('');
   const [prodFormOriginalPrice, setProdFormOriginalPrice] = useState('20');
@@ -656,6 +658,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setProdFormName('');
     setProdFormSlug('');
     setProdFormCategory('Organic Foods');
+    setProdFormSubcategory('');
     setProdFormPrice('15');
     setProdFormCostPrice('');
     setProdFormOriginalPrice('');
@@ -677,6 +680,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setProdFormName(prod.name);
     setProdFormSlug(prod.slug || generateSlug(prod.name));
     setProdFormCategory(prod.category);
+    setProdFormSubcategory(prod.subcategory || '');
     setProdFormPrice(String(prod.price));
     setProdFormCostPrice(prod.costPrice ? String(prod.costPrice) : '');
     setProdFormOriginalPrice(prod.originalPrice ? String(prod.originalPrice) : '');
@@ -747,6 +751,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               name: cleanName,
               slug: finalSlug,
               category: prodFormCategory,
+              subcategory: prodFormSubcategory.trim() || undefined,
               price: priceNum,
               costPrice: prodFormCostPrice ? parseFloat(prodFormCostPrice) : undefined,
               originalPrice: prodFormOriginalPrice ? parseFloat(prodFormOriginalPrice) : undefined,
@@ -769,6 +774,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           name: cleanName,
           slug: finalSlug,
           category: prodFormCategory,
+          subcategory: prodFormSubcategory.trim() || undefined,
           price: priceNum,
           costPrice: prodFormCostPrice ? parseFloat(prodFormCostPrice) : undefined,
           originalPrice: prodFormOriginalPrice ? parseFloat(prodFormOriginalPrice) : undefined,
@@ -2199,9 +2205,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                           </td>
                           <td className="px-5 py-3.5">
-                            <span className="px-2.5 py-1 rounded-md bg-stone-100 text-stone-700 text-[11px] font-semibold">
-                              {product.category}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span className="px-2.5 py-1 rounded-md bg-stone-100 text-stone-700 text-[11px] font-semibold inline-block w-max">
+                                {product.category}
+                              </span>
+                              {product.subcategory && (
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200 inline-block w-max">
+                                  {product.subcategory}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-5 py-3.5 font-bold text-stone-900">
                             {symbol}{Math.round(product.price * rate).toLocaleString()}
@@ -5569,7 +5582,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </label>
                         <select
                           value={prodFormCategory}
-                          onChange={(e) => setProdFormCategory(e.target.value)}
+                          onChange={(e) => {
+                            setProdFormCategory(e.target.value);
+                            // Clear subcategory if new category has no subcategories
+                            const subs = getSubcategoriesForCategory(e.target.value);
+                            if (subs.length === 0) {
+                              setProdFormSubcategory('');
+                            }
+                          }}
                           className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs font-bold text-stone-800 focus:outline-none focus:border-emerald-600"
                         >
                           {categories && categories.length > 0
@@ -5609,6 +5629,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </select>
                       </div>
                     </div>
+
+                    {/* Subcategory Selector */}
+                    {(() => {
+                      const availableSubs = getSubcategoriesForCategory(prodFormCategory);
+                      if (availableSubs.length === 0) return null;
+
+                      return (
+                        <div className="pt-2">
+                          <label className="block font-bold text-emerald-900 text-xs mb-1.5 flex items-center justify-between">
+                            <span>Sub-category</span>
+                            <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              Medicine & Health Filter
+                            </span>
+                          </label>
+                          <select
+                            value={prodFormSubcategory}
+                            onChange={(e) => setProdFormSubcategory(e.target.value)}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-emerald-50/40 border border-emerald-300 text-xs font-bold text-emerald-950 focus:outline-none focus:border-emerald-600 focus:bg-white"
+                          >
+                            <option value="">-- No Sub-category (General Item) --</option>
+                            {availableSubs.map((sub) => (
+                              <option key={sub.id} value={sub.name}>
+                                {sub.name}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-[11px] text-stone-500 mt-1">
+                            Options: Medicines & Wellness, Surgical & First Aid, Women's Care & Napkins, Baby Care & Diapers, Protection.
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Card 2: Pricing & Stock */}

@@ -453,11 +453,18 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             {/* RIGHT COLUMN: PRODUCT INFO, PRICE, VARIANT, QUANTITY & BUTTONS */}
             <div className="md:col-span-6 space-y-4">
               
-              {/* Category & Rating */}
+              {/* Category & Subcategory & Rating */}
               <div className="flex items-center justify-between text-xs text-stone-500">
-                <span className="font-semibold uppercase tracking-wider text-[#f38018] bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100">
-                  {product.category || 'Featured'}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-semibold uppercase tracking-wider text-[#f38018] bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100">
+                    {product.category || 'Featured'}
+                  </span>
+                  {product.subcategory && (
+                    <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                      {product.subcategory}
+                    </span>
+                  )}
+                </div>
                 {enableCustomerReviews ? (
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 text-amber-400 fill-amber-400" />

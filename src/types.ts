@@ -31,6 +31,7 @@ export interface Product {
   category: string;
   categoryId?: string;
   categoryName?: string;
+  subcategory?: string;
   brand?: string;
   origin?: string;
   weight?: string;
@@ -233,6 +234,7 @@ export interface Order {
 
 export interface FilterState {
   category: Category;
+  subcategory?: string;
   searchQuery?: string;
   search?: string;
   inStockOnly: boolean;
