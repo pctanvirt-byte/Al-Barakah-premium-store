@@ -60,14 +60,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       id={`product-card-${product.id}`}
     >
       <div>
-        {/* Product Image Container with subtle hover effect */}
+        {/* Product Image Container with subtle hover effect & anti-theft shield */}
         <div className="relative w-full aspect-square bg-stone-50/50 rounded-lg sm:rounded-xl flex items-center justify-center p-1 sm:p-2 overflow-hidden transition-all duration-300">
           <img
             src={product.image || (product.images && product.images[0])}
             alt={product.name}
-            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-xs"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-xs pointer-events-none select-none"
             loading="lazy"
+            draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
             referrerPolicy="no-referrer"
+          />
+
+          {/* Level 1: Transparent Overlay Layer to block long-press and right-click on mobile/desktop */}
+          <div 
+            className="img-shield cursor-pointer" 
+            onContextMenu={(e) => e.preventDefault()} 
+            aria-hidden="true"
           />
 
           {/* Subtle hover overlay */}

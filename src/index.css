@@ -52,3 +52,33 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ========================================================================= */
+/* LEVEL 1: IMAGE PROTECTION GUARDS (ANTI-THEFT & LONG-PRESS BLOCK)         */
+/* ========================================================================= */
+img {
+  -webkit-touch-callout: none !important; /* Disables iOS Safari image popup */
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+  pointer-events: none !important; /* Prevents mobile browsers from triggering native long-press download */
+}
+
+/* Allow pointer events for specific interactive items if needed */
+img.allow-interaction {
+  pointer-events: auto !important;
+}
+
+/* Transparent protection shield layer placed over image containers */
+.img-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

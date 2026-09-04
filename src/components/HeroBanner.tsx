@@ -176,8 +176,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 <img
                   src={slide.image}
                   alt={slide.title || 'Banner'}
-                  className="w-full h-full object-cover object-center group-hover:scale-[1.01] transition-transform duration-700"
+                  className="w-full h-full object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 pointer-events-none select-none"
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
                   referrerPolicy="no-referrer"
+                />
+                {/* Level 1: Transparent Shield Layer over Slide */}
+                <div 
+                  className="img-shield cursor-pointer"
+                  onContextMenu={(e) => e.preventDefault()}
+                  aria-hidden="true"
                 />
               </div>
             ))}
@@ -242,13 +250,21 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             title={`Click to view ${promoCard.targetValue || 'category'}`}
             id="hero-right-promo-card"
           >
-            {/* Clean Promo Graphic Image */}
+            {/* Clean Promo Graphic Image with Level 1 Shield */}
             <div className="absolute inset-0 w-full h-full z-0 flex items-center justify-center bg-[#fdfcf9]">
               <img
                 src={promoCard.image}
                 alt={promoCard.title || 'Promo Banner'}
-                className="w-full h-full object-cover object-center group-hover:scale-[1.01] transition-transform duration-700"
+                className="w-full h-full object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 pointer-events-none select-none"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
                 referrerPolicy="no-referrer"
+              />
+              {/* Level 1: Transparent Shield Layer over Promo Card */}
+              <div 
+                className="img-shield cursor-pointer"
+                onContextMenu={(e) => e.preventDefault()}
+                aria-hidden="true"
               />
             </div>
           </div>

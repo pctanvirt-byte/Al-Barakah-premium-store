@@ -187,13 +187,22 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
                     </button>
                   )}
 
-                  {/* Banner Image - strictly fitted without aggressive cropping or zooming */}
+                  {/* Banner Image - protected from drag, long-press, and right-click */}
                   <img
                     src={resolvedProduct.image}
                     alt={resolvedProduct.name}
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02] pointer-events-none select-none"
                     loading="lazy"
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
+
+                  {/* Level 1: Transparent Shield Layer over Top Selling Banner Image */}
+                  <div 
+                    className="img-shield cursor-pointer"
+                    onContextMenu={(e) => e.preventDefault()}
+                    aria-hidden="true"
                   />
                 </div>
 

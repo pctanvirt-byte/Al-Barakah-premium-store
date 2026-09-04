@@ -333,11 +333,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <img
                       src={imgUrl}
                       alt={`${product.name} thumbnail ${idx + 1}`}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain pointer-events-none select-none"
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
                       referrerPolicy="no-referrer"
                     />
+                    {/* Level 1: Transparent Shield on thumbnail */}
+                    <div 
+                      className="img-shield cursor-pointer" 
+                      onContextMenu={(e) => e.preventDefault()}
+                      aria-hidden="true" 
+                    />
                     {selectedImgIndex === idx && (
-                      <div className="absolute inset-0 bg-[#f38018]/10 pointer-events-none" />
+                      <div className="absolute inset-0 bg-[#f38018]/10 pointer-events-none z-10" />
                     )}
                   </button>
                 ))}
@@ -379,11 +387,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                       }
                     }}
                     className="w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+                    onContextMenu={(e) => e.preventDefault()}
                   >
                     <img
                       src={currentActiveImage}
                       alt={product.name}
-                      className="w-full h-full object-contain transition-transform duration-300 hover:scale-105 pointer-events-none"
+                      className="w-full h-full object-contain transition-transform duration-300 hover:scale-105 pointer-events-none select-none"
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
                       referrerPolicy="no-referrer"
                     />
                   </motion.div>
@@ -863,12 +874,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                       <img
                         src={item.image}
                         alt={item.name}
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
                         loading="lazy"
+                        draggable={false}
+                        onContextMenu={(e) => e.preventDefault()}
                         referrerPolicy="no-referrer"
                       />
+                      {/* Level 1: Transparent Shield on Related Product */}
+                      <div 
+                        className="img-shield cursor-pointer"
+                        onContextMenu={(e) => e.preventDefault()}
+                        aria-hidden="true"
+                      />
                       {item.badge && (
-                        <span className="absolute top-2 left-2 px-1.5 py-0.5 text-[9px] font-bold bg-[#f38018] text-white rounded">
+                        <span className="absolute top-2 left-2 px-1.5 py-0.5 text-[9px] font-bold bg-[#f38018] text-white rounded z-10">
                           {item.badge}
                         </span>
                       )}

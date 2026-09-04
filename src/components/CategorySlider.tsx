@@ -129,8 +129,16 @@ export const CategorySlider: React.FC<CategorySliderProps> = ({
                     <img
                       src={cat.image}
                       alt={cat.name}
-                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300 pointer-events-none select-none"
                       loading="lazy"
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                    />
+                    {/* Level 1: Transparent Shield over Category Item */}
+                    <div 
+                      className="img-shield cursor-pointer"
+                      onContextMenu={(e) => e.preventDefault()}
+                      aria-hidden="true"
                     />
                   </div>
                 </div>

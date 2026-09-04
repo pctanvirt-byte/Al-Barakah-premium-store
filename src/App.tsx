@@ -394,6 +394,36 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Level 1: Global image protection against right-click context menu and drag & drop
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target && 
+        (target.tagName === 'IMG' || target.classList.contains('img-shield') || target.closest('.img-shield'))
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    const handleDragStart = (e: DragEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target && 
+        (target.tagName === 'IMG' || target.classList.contains('img-shield'))
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('dragstart', handleDragStart);
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('dragstart', handleDragStart);
+    };
+  }, []);
+
   // --- Modals State ---
   const [activePageView, setActivePageView] = useState<'CATALOG' | 'CART' | 'TRACK' | 'LOGIN' | 'WISHLIST'>('CATALOG');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
