@@ -2366,6 +2366,11 @@ export default function App() {
             return newOrder;
           }}
           deliveryConfig={deliveryConfig}
+          bkashConfig={bkashConfig}
+          onOpenCheckout={(prod, qty, variant) => {
+            setLandingProduct(null);
+            handleBuyNow(prod, qty, undefined, variant?.size || variant?.label, variant?.price);
+          }}
           onOpenStore={() => {
             setLandingProduct(null);
             setActivePageView('CATALOG');

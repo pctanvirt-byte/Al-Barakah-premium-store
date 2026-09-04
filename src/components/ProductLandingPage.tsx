@@ -23,9 +23,10 @@ import {
   HelpCircle,
   X,
   Share2,
-  Check
+  Check,
+  Copy
 } from 'lucide-react';
-import { Product, Order, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, LandingPageVariant } from '../types';
+import { Product, Order, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, LandingPageVariant, BKashPaymentConfig, DEFAULT_BKASH_CONFIG } from '../types';
 import { AlBarakahLogo } from './AlBarakahLogo';
 
 interface ProductLandingPageProps {
@@ -33,6 +34,8 @@ interface ProductLandingPageProps {
   onClose: () => void;
   onPlaceOrder: (order: Partial<Order>) => Promise<Order | void> | void;
   deliveryConfig?: DeliveryConfig;
+  bkashConfig?: BKashPaymentConfig;
+  onOpenCheckout?: (prod: Product, qty: number, variant?: LandingPageVariant) => void;
   onOpenStore?: () => void;
 }
 
@@ -41,6 +44,8 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   onClose,
   onPlaceOrder,
   deliveryConfig = DEFAULT_DELIVERY_CONFIG,
+  bkashConfig = DEFAULT_BKASH_CONFIG,
+  onOpenCheckout,
   onOpenStore,
 }) => {
   const formRef = useRef<HTMLDivElement>(null);
@@ -50,8 +55,12 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   const lpConfig = product.landingPage || {};
   const headline = lpConfig.headline || product.name;
   const subheadline = lpConfig.subheadline || product.description;
-  const highlightBadge = lpConfig.highlightBadge || '🔥 সীমিত সময়ের স্পেশাল অফার - ক্যাশ অন ডেলিভারি';
-  const bannerNote = lpConfig.bannerNote || '🎉 আজকের বিশেষ অফার: ৫ লিটার ফ্যামিলি প্যাক নিলে ডেলিভারি সম্পূর্ণ ফ্রি!';
+  const highlightBadge = lpConfig.highlightBadge || '🔥 সীমিত সময়ের স্পেশাল অফার';
+  const bannerNote = lpConfig.bannerNote || (
+    deliveryConfig.enableFreeDelivery && deliveryConfig.freeDeliveryThreshold > 0
+      ? `🎉 ৳${deliveryConfig.freeDeliveryThreshold}+ এর অর্ডারে সারা দেশে ডেলিভারি সম্পূর্ণ ফ্রি!`
+      : '🎉 ১০০% আসল ও প্রিমিয়াম কোয়ালিটি পণ্য • সারা বাংলাদেশে দ্রুত হোম ডেলিভারি!'
+  );
   const customerHelpline = (lpConfig.customerHelpline && lpConfig.customerHelpline !== '01712-345678')
     ? lpConfig.customerHelpline
     : '01316534171';
@@ -79,6 +88,10 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryLocation, setDeliveryLocation] = useState<'inside_dhaka' | 'outside_dhaka'>('inside_dhaka');
+  const [paymentMethod, setPaymentMethod] = useState<'ADVANCE_DELIVERY' | 'FULL_BKASH'>('ADVANCE_DELIVERY');
+  const [senderBkashNumber, setSenderBkashNumber] = useState('');
+  const [bkashTrxId, setBkashTrxId] = useState('');
+  const [copiedBkash, setCopiedBkash] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,23 +143,42 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   const subtotal = unitPrice * quantity;
   
   // Delivery Fee calculation
-  const isFreeDeliveryApplicable = 
+  const isFreeDeliveryApplicable = Boolean(
     selectedVariant.freeDelivery || 
-    (deliveryConfig.enableFreeDelivery && subtotal >= deliveryConfig.freeDeliveryThreshold);
+    (deliveryConfig.enableFreeDelivery && subtotal >= (deliveryConfig.freeDeliveryThreshold || 0))
+  );
 
-  const deliveryFee = isFreeDeliveryApplicable 
-    ? 0 
-    : (deliveryLocation === 'inside_dhaka' ? deliveryConfig.insideDhakaCharge : deliveryConfig.outsideDhakaCharge);
+  const getDeliveryFee = () => {
+    if (isFreeDeliveryApplicable) return 0;
+    if (deliveryLocation === 'inside_dhaka') return deliveryConfig.insideDhakaCharge ?? 80;
+    return deliveryConfig.outsideDhakaCharge ?? 160;
+  };
 
+  const deliveryFee = getDeliveryFee();
   const grandTotal = subtotal + deliveryFee;
+
+  const advancePayable = isFreeDeliveryApplicable
+    ? 0
+    : (paymentMethod === 'FULL_BKASH' ? grandTotal : deliveryFee);
+
+  const dueOnDelivery = isFreeDeliveryApplicable
+    ? grandTotal
+    : (paymentMethod === 'FULL_BKASH' ? 0 : subtotal);
 
   const handleShareLink = () => {
     if (typeof window !== 'undefined') {
       const url = `${window.location.origin}${window.location.pathname}?landing=${product.id}`;
       navigator.clipboard.writeText(url);
       setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
+      setTimeout(() => setCopiedLink(false), 2000);
     }
+  };
+
+  const handleCopyBkash = () => {
+    const num = bkashConfig.personalNumber || '01316534171';
+    navigator.clipboard.writeText(num);
+    setCopiedBkash(true);
+    setTimeout(() => setCopiedBkash(false), 2500);
   };
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -172,24 +204,53 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
       return;
     }
 
+    if (advancePayable > 0) {
+      if (!senderBkashNumber.trim() || senderBkashNumber.trim().length < 10) {
+        setValidationError('দয়া করে যে বিকাশ নম্বর থেকে ডেলিভারি চার্জ পাঠিয়েছেন তা লিখুন।');
+        return;
+      }
+      if (!bkashTrxId.trim() || bkashTrxId.trim().length < 4) {
+        setValidationError('দয়া করে বিকাশের ৮-১০ ডিজিটের ট্রানজেকশন আইডি (TrxID) লিখুন।');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
+      const locationLabel = deliveryLocation === 'inside_dhaka'
+        ? 'ঢাকা সিটি (Inside Dhaka)'
+        : 'ঢাকার বাইরে (Outside Dhaka)';
+
+      const methodLabel = advancePayable === 0
+        ? 'Cash on Delivery (ক্যাশ অন ডেলিভারি)'
+        : (paymentMethod === 'ADVANCE_DELIVERY' 
+            ? 'Cash on Delivery (bKash Advance Delivery Charge)'
+            : 'bKash (Full Payment)');
+
       const orderPayload: Partial<Order> = {
         id: `ALB-${Date.now().toString().slice(-6)}`,
         customerName: cleanName,
         customerPhone: cleanPhone,
         deliveryAddress: cleanAddress,
-        cityDistrict: deliveryLocation === 'inside_dhaka' ? 'ঢাকা সিটি (Inside Dhaka)' : 'ঢাকার বাইরে (Outside Dhaka)',
+        cityDistrict: locationLabel,
         subtotalAmount: subtotal,
         deliveryFee: deliveryFee,
         totalAmount: grandTotal,
         currency: 'BDT',
-        paymentMethod: 'Cash on Delivery (ক্যাশ অন ডেলিভারি)',
-        paymentStatus: 'UNPAID',
+        paymentMethod: methodLabel,
+        paymentStatus: advancePayable > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
+        paidAmount: advancePayable,
+        dueAmount: dueOnDelivery,
         orderStatus: 'PENDING',
         notes: orderNotes.trim() ? `[Landing Page] ${orderNotes.trim()}` : '[Landing Page Direct Order]',
         createdAt: new Date().toISOString(),
+        paymentDetails: advancePayable > 0 ? {
+          senderNumber: senderBkashNumber.trim(),
+          trxId: bkashTrxId.trim().toUpperCase(),
+          advancePaid: advancePayable,
+          dueOnDelivery: dueOnDelivery,
+        } : undefined,
         items: [
           {
             id: `item-${Date.now()}`,
@@ -207,8 +268,8 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
           email: '',
           phone: cleanPhone,
           address: cleanAddress,
-          city: deliveryLocation === 'inside_dhaka' ? 'Dhaka' : 'Outside Dhaka',
-          paymentMethod: 'Cash on Delivery',
+          city: locationLabel,
+          paymentMethod: methodLabel,
         }
       };
 
@@ -223,34 +284,75 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
     }
   };
 
-  const keyBenefits = lpConfig.keyBenefits || [
-    '১০০% ঐতিহ্যবাহী কাঠের ঘানি ভাঙা দেশি সরিষার তেল',
-    'কোনো প্রকার কেমিক্যাল, প্রিজারভেটিভ বা কৃত্রিম ঝাঁঝ মুক্ত',
-    'উচ্চ ঝাঁঝ, প্রাকৃতিক সোনালী রং এবং স্বাস্থ্যকর খাঁটি পুষ্টি',
-    'ডেলিভারি ম্যানের সামনে ঘ্রাণ ও ঝাঁঝ দেখে মূল্য পরিশোধের সুবিধা'
-  ];
+  const keyBenefits = (lpConfig.keyBenefits && lpConfig.keyBenefits.length > 0)
+    ? lpConfig.keyBenefits
+    : [
+        '১০০% খাঁটি ও পরীক্ষিত প্রিমিয়াম মান',
+        'নিরাপদ ও আকর্ষণীয় স্বাস্থ্যসম্মত প্যাকেজিং',
+        'সারা বাংলাদেশে দ্রুত ও বিশ্বস্ত হোম ডেলিভারি',
+        'বিকাশে সহজ অগ্রিম ডেলিভারি চার্জ পরিশোধ'
+      ];
 
   const trustPoints = lpConfig.trustPoints || [
-    'ক্যাশ অন ডেলিভারিতে পণ্য বুঝে পেয়ে মূল্য পরিশোধ করুন',
+    'বিকাশে ডেলিভারি চার্জ পরিশোধের পর ক্যাশ অন ডেলিভারিতে বাকি মূল্য',
     'সারা বাংলাদেশে ২-৩ কার্যদিবসে দ্রুত হোম ডেলিভারি',
-    'নিরাপদ, ফুড-গ্রেড লিক-প্রুফ বোতল প্যাকেজিং',
-    '২৪/৭ কাস্টমার সাপোর্ট ও হেল্পলাইন সেবা'
+    'নিরাপদ, ফুড-গ্রেড ও লিক-প্রুফ সুরক্ষিত প্যাকেজিং',
+    '২৪/৭ কাস্টমার সাপোর্ট ও সার্বক্ষণিক হেল্পলাইন সেবা'
   ];
 
   const faqs = lpConfig.faqs || [
     {
       question: 'পণ্য কীভাবে ডেলিভারি পাব এবং টাকা কীভাবে দেব?',
-      answer: 'আমাদের ডেলিভারি ম্যান সরাসরি আপনার ঠিকানায় পণ্য পৌঁছে দেবে। পণ্য হাতে পেয়ে চেক করে তারপর ডেলিভারি ম্যানকে ক্যাশ টাকা পরিশোধ করবেন।'
+      answer: 'অর্ডারের সময় শুধুমাত্র ডেলিভারি চার্জ বিকাশে অগ্রিম পরিশোধ করবেন। আমাদের ডেলিভারি ম্যান আপনার ঠিকানায় পার্সেল পৌঁছে দিলে পণ্যের মূল দাম ক্যাশ পরিশোধ করে পার্সেল গ্রহণ করবেন।'
     },
     {
-      question: 'পণ্য পছন্দ না হলে কি রিটার্ন করা যাবে?',
-      answer: 'অবশ্যই! ডেলিভারি ম্যান থাকা অবস্থায় বোতলের ঝাঁঝ ও মান পরীক্ষা করে বিন্দুমাত্র অপছন্দ হলে সাথে সাথে কোনো চার্জ ছাড়াই ফেরত দিতে পারবেন।'
+      question: 'পণ্য পছন্দ না হলে বা কোনো সমস্যা থাকলে কী করব?',
+      answer: 'ডেলিভারি ম্যানের উপস্থিতিতে পণ্য যাচাই করে নিতে পারবেন। কোনো প্রকার ত্রুটি বা অসঙ্গতি থাকলে সাথে সাথে আমাদের হেল্পলাইনে জানালে দ্রুত সমাধান দেওয়া হবে।'
     },
     {
-      question: 'কতদিনের মধ্যে ডেলিভারি পাওয়া যাবে?',
-      answer: 'ঢাকার ভেতরে ২৪ থেকে ৪৮ ঘণ্টার মধ্যে এবং ঢাকার বাইরে ২ থেকে ৩ কার্যদিবসের মধ্যে ডেলিভারি সম্পন্ন হয়।'
+      question: 'কতদিনের মধ্যে ডেলিভারি সম্পন্ন হবে?',
+      answer: 'ঢাকার ভেতরে ২৪ থেকে ৪৮ ঘণ্টার মধ্যে এবং ঢাকার বাইরে দেশের যেকোনো জেলায় ২ থেকে ৩ কার্যদিবসের মধ্যে ডেলিভারি সম্পন্ন হয়।'
     }
   ];
+
+  // Clean description parser
+  const renderFormattedDescription = (text: string) => {
+    if (!text) return null;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    
+    return (
+      <div className="space-y-3 pt-2 text-stone-700 leading-relaxed text-sm sm:text-base">
+        {lines.map((line, idx) => {
+          const isBullet = line.startsWith('*') || line.startsWith('-') || line.startsWith('•') || line.startsWith('✨') || line.startsWith('⭐') || line.startsWith('✅');
+          const cleanLine = isBullet ? line.replace(/^[*•\-\s✨⭐✅]+/, '').trim() : line;
+          
+          if (isBullet) {
+            return (
+              <div key={idx} className="flex items-start gap-2.5 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
+                <span className="text-emerald-600 font-bold shrink-0 mt-0.5">✦</span>
+                <span className="font-medium text-stone-800 text-sm sm:text-base">{cleanLine}</span>
+              </div>
+            );
+          }
+
+          if (line.endsWith(':') || (line.length < 60 && (line.includes('Attar') || line.includes('বৈশিষ্ট্য') || line.includes('উপকারিতা') || line.includes('ব্যবহারবিধি')))) {
+            return (
+              <h4 key={idx} className="font-bold text-stone-900 text-base sm:text-lg pt-2 text-emerald-950 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block shrink-0" />
+                <span>{line}</span>
+              </h4>
+            );
+          }
+
+          return (
+            <p key={idx} className="text-stone-700 leading-relaxed">
+              {line}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-50 text-stone-900 font-sans pb-24 selection:bg-emerald-500 selection:text-white" id="albarakah-sales-landing-page">
@@ -484,10 +586,13 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                   </span>
                 </div>
 
-                {/* Subheadline description */}
-                <p className="text-stone-600 text-base sm:text-lg leading-relaxed">
-                  {subheadline}
-                </p>
+                {/* Clean, formatted description */}
+                <div className="border-t border-b border-stone-100 py-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-md mb-2 inline-block">
+                    পণ্য বিবরণী ও বিশেষত্ব
+                  </span>
+                  {renderFormattedDescription(subheadline || product.description)}
+                </div>
 
                 {/* Interactive Package Cards */}
                 <div className="space-y-3 pt-2">
@@ -536,14 +641,20 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                   </div>
                 </div>
 
-                {/* Quick CTA Button directly jumping to form */}
+                {/* Quick CTA Button */}
                 <div className="pt-2 flex flex-col sm:flex-row gap-3">
                   <button
-                    onClick={scrollToForm}
+                    onClick={() => {
+                      if (onOpenCheckout) {
+                        onOpenCheckout(product, quantity, selectedVariant);
+                      } else {
+                        scrollToForm();
+                      }
+                    }}
                     type="button"
                     className="flex-1 py-4 px-6 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-lg rounded-2xl shadow-xl shadow-emerald-700/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>👉 এখনই অর্ডার করুন (ক্যাশ অন ডেলিভারি)</span>
+                    <span>👉 এখনই অর্ডার করুন</span>
                     <ArrowRight className="w-5 h-5" />
                   </button>
 
@@ -560,11 +671,11 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                 <div className="grid grid-cols-2 gap-3 pt-2 text-xs text-stone-600 border-t border-stone-100">
                   <div className="flex items-center gap-2">
                     <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>সারা দেশে ক্যাশ অন ডেলিভারি</span>
+                    <span>বিকাশে অগ্রিম ডেলিভারি চার্জ</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <RotateCcw className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>পছন্দ না হলে সাথে সাথে রিটার্ন</span>
+                    <span>চেক করে বাকি মূল্য পরিশোধ</span>
                   </div>
                 </div>
 
@@ -580,52 +691,52 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                 কেন আল-বারাকাহ প্রিমিয়াম সেরা?
               </span>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900">
-                আমাদের খাঁটি সরিষার তেলের বিশেষ বৈশিষ্ট্য
+                {lpConfig.featuresTitle || `কেন আমাদের ${product.name} অনন্য ও সেরা?`}
               </h2>
               <p className="text-stone-600 text-sm sm:text-base">
-                আমরা কোনো প্রকার ক্ষতিকর প্রিজারভেটিভ বা কেমিক্যাল ছাড়া সনাতন কাঠের ঘানিতে তেল প্রস্তুত করি।
+                {lpConfig.featuresSubtitle || 'আমরা কোনো প্রকার ক্ষতিকর উপাদান বা ভেজাল ছাড়া বিশুদ্ধ প্রিমিয়াম মানের পণ্য সরবরাহ করি।'}
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               
-              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-sm text-left space-y-3 hover:shadow-md transition-shadow">
+              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-xs text-left space-y-3 hover:shadow-md transition-shadow">
                 <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xl">
-                  🪵
+                  🛡️
                 </div>
-                <h3 className="font-bold text-stone-900 text-lg">কাঠের ঘানিতে কোল্ড-প্রেসড</h3>
+                <h3 className="font-bold text-stone-900 text-lg">১০০% আসল ও খাঁটি পণ্য</h3>
                 <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-                  ধীরগতির কাঠের ঘানিতে ভাঙানোর কারণে তেলের তাপমাত্রা বাড়ে না, ফলে প্রাকৃতিক পুষ্টি ও ভিটামিন অক্ষুণ্ণ থাকে।
+                  সরাসরি বিশ্বস্ত ও খাঁটি উৎস থেকে বাছাইকৃত উপাদান দিয়ে সর্বোচ্চ মান নিশ্চিত করা হয়।
                 </p>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-sm text-left space-y-3 hover:shadow-md transition-shadow">
+              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-xs text-left space-y-3 hover:shadow-md transition-shadow">
                 <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xl">
                   🌿
                 </div>
-                <h3 className="font-bold text-stone-900 text-lg">১০০% কেমিক্যাল মুক্ত</h3>
+                <h3 className="font-bold text-stone-900 text-lg">সম্পূর্ণ নির্ভেজাল ও নিরাপদ</h3>
                 <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-                  কোনো প্রকার কৃত্রিম ঝাঁঝ বাড়ানো এসেন্স, কেমিক্যাল বা ক্ষতিকর পাম অয়েলের সংমিশ্রণ নেই।
+                  কোনো ক্ষতিকর রাসায়নিক বা অস্বাস্থ্যকর উপাদান নেই, সম্পূর্ণ স্বাস্থ্যসম্মত ও হালাল।
                 </p>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-sm text-left space-y-3 hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 rounded-xl bg-red-100 text-red-800 flex items-center justify-center font-bold text-xl">
-                  👃
+              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-xs text-left space-y-3 hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xl">
+                  🚚
                 </div>
-                <h3 className="font-bold text-stone-900 text-lg">তীব্র ঝাঁঝ ও আসল ঘ্রাণ</h3>
+                <h3 className="font-bold text-stone-900 text-lg">সারা দেশে দ্রুত ডেলিভারি</h3>
                 <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-                  দেশি বাছাইকৃত মাঘী সরিষার বীজ থেকে তৈরি হওয়ায় পাবেন খাঁটি ঐতিহ্যবাহী ঝাঁঝালো অনুভূতি ও মন মাতানো সুবাস।
+                  ঢাকার ভেতরে ও দেশের প্রতিটি জেলায় দ্রুত ও নিরাপদ হোম ডেলিভারি সেবা।
                 </p>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-sm text-left space-y-3 hover:shadow-md transition-shadow">
+              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-xs text-left space-y-3 hover:shadow-md transition-shadow">
                 <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xl">
-                  🛡️
+                  🤝
                 </div>
-                <h3 className="font-bold text-stone-900 text-lg">চেক করে মূল্য পরিশোধ</h3>
+                <h3 className="font-bold text-stone-900 text-lg">যাচাই করে গ্রহণের সুবিধা</h3>
                 <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-                  ডেলিভারি ম্যানের সামনে বোতল খুলে ঘ্রাণ ও মান যাচাই করে সন্তুষ্ট হয়ে তারপর ক্যাশ পেমেন্ট করবেন।
+                  ডেলিভারি ম্যানের উপস্থিতিতে পণ্য দেখে নিশ্চিত হয়ে তবেই বাকি মূল্য পরিশোধের সুযোগ।
                 </p>
               </div>
 
@@ -637,10 +748,10 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               <div className="lg:col-span-7 space-y-6">
                 <span className="text-xs font-bold uppercase tracking-widest text-emerald-300 bg-emerald-800/60 px-3.5 py-1 rounded-full border border-emerald-500/30">
-                  স্বাস্থ্য উপকারিতা ও খাঁটি নিশ্চয়তা
+                  গুণগত নিশ্চয়তা ও সেবা
                 </span>
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-snug">
-                  প্রতিদিনের রান্নায় খাঁটি সরিষার তেলের অবিশ্বাস্য উপকারিতা
+                  {lpConfig.benefitsTitle || `${product.name}-এর বিশেষ বৈশিষ্ট্য ও প্রিমিয়াম গুণাবলী`}
                 </h2>
                 <ul className="space-y-3.5 text-stone-200 text-sm sm:text-base">
                   {keyBenefits.map((benefit, i) => (
@@ -658,10 +769,16 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                 <Award className="w-12 h-12 text-amber-400 mx-auto" />
                 <h3 className="text-xl font-bold text-white">১০০% গ্রাহক সন্তুষ্টি গ্যারান্টি</h3>
                 <p className="text-stone-300 text-xs sm:text-sm leading-relaxed">
-                  আল-বারাকাহ প্রিমিয়ামের প্রতিটি বোতল অত্যন্ত যত্ন ও স্বাস্থ্যসম্মত পরিবেশে প্যাক করা হয়। আপনার সন্তুষ্টিই আমাদের প্রথম অগ্রাধিকার।
+                  আল-বারাকাহ প্রিমিয়ামের প্রতিটি পণ্য অত্যন্ত যত্ন ও স্বাস্থ্যসম্মত পরিবেশে প্যাক করা হয়। আপনার সন্তুষ্টিই আমাদের প্রথম অগ্রাধিকার।
                 </p>
                 <button
-                  onClick={scrollToForm}
+                  onClick={() => {
+                    if (onOpenCheckout) {
+                      onOpenCheckout(product, quantity, selectedVariant);
+                    } else {
+                      scrollToForm();
+                    }
+                  }}
                   type="button"
                   className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-xl transition-all shadow-lg text-sm sm:text-base cursor-pointer"
                 >
@@ -679,35 +796,52 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-xl sm:text-2xl font-extrabold text-amber-950">
-                  {lpConfig.guaranteeTitle || 'আমাদের ১০০% খাঁটি মান ও ওপেন বক্স রিটার্ন গ্যারান্টি'}
+                  {lpConfig.guaranteeTitle || 'আমাদের ১০০% খাঁটি মান ও সন্তুষ্টির নিশ্চয়তা'}
                 </h3>
                 <p className="text-stone-700 text-sm sm:text-base leading-relaxed">
-                  {lpConfig.guaranteeText || 'ডেলিভারি ম্যান থাকা অবস্থায় বোতলের মুখ সামান্য খুলে তেলের ঝাঁঝ, ঘনত্ব ও সুবাস নিজে পরীক্ষা করুন। বিন্দুমাত্র অপছন্দ হলে সাথে সাথে কোনো চার্জ ছাড়াই ডেলিভারি ম্যানের হাতে ফেরত দেওয়ার সুযোগ রয়েছে।'}
+                  {lpConfig.guaranteeText || 'আল-বারাকাহ প্রিমিয়ামে আমরা প্রতিটি গ্রাহকের সন্তুষ্টিকে সর্বোচ্চ প্রাধান্য দিই। পার্সেল হাতে পেয়ে গুণগত মান দেখে নিয়ে তবেই বাকি মূল্য পরিশোধ করবেন। বিন্দুমাত্র অসন্তুষ্টি থাকলে সাথে সাথে আমাদের হেল্পলাইনে কল করে সমাধান নিতে পারবেন।'}
                 </p>
               </div>
             </div>
           </section>
 
-          {/* 8. DIRECT 1-CLICK CASH ON DELIVERY ORDER FORM */}
+          {/* 8. DIRECT CASH ON DELIVERY WITH BKASH ADVANCE CHARGE ORDER FORM */}
           <section ref={formRef} id="order-form-section" className="scroll-mt-24">
             <div className="bg-white rounded-3xl border-2 border-emerald-600 shadow-2xl overflow-hidden">
               
               {/* Form Top Title */}
               <div className="bg-gradient-to-r from-emerald-800 to-teal-800 text-white p-6 sm:p-8 text-center space-y-2">
                 <span className="text-xs font-bold uppercase tracking-widest text-amber-300 bg-black/30 px-3 py-1 rounded-full">
-                  ক্যাশ অন ডেলিভারি (হাতে পেয়ে টাকা দিন)
+                  ক্যাশ অন ডেলিভারি (বিকাশে অগ্রিম ডেলিভারি চার্জ)
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black">
                   অর্ডার করতে নিচের ফর্মটি পূরণ করুন
                 </h2>
                 <p className="text-emerald-100 text-xs sm:text-sm max-w-md mx-auto">
-                  আপনার নাম, মোবাইল নম্বর ও পূর্ণ ঠিকানা লিখে "অর্ডার কনফার্ম করুন" বাটনে ক্লিক করুন।
+                  আপনার তথ্য ও ডেলিভারি এলাকা নির্বাচন করে অর্ডার সম্পন্ন করুন।
                 </p>
               </div>
 
               {/* Form Content */}
               <form onSubmit={handleSubmitOrder} className="p-6 sm:p-10 space-y-6">
                 
+                {/* Direct Checkout Modal Option */}
+                {onOpenCheckout && (
+                  <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                    <div className="text-xs sm:text-sm text-emerald-950">
+                      <span className="font-bold block">💡 ওয়েবসাইটের চেকআউট পেজে যেতে চান?</span>
+                      <span>সরাসরি চেকআউট উইন্ডোতে আরও সহজে অর্ডার করুন।</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenCheckout(product, quantity, selectedVariant)}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+                    >
+                      চেকআউট পেজ খুলুন
+                    </button>
+                  </div>
+                )}
+
                 {/* Validation error display */}
                 {validationError && (
                   <div className="p-4 rounded-xl bg-red-50 border border-red-300 text-red-700 text-sm font-semibold flex items-center gap-2">
@@ -729,7 +863,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                           key={variant.id}
                           className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
                             isSelected
-                              ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-sm'
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-xs'
                               : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800'
                           }`}
                         >
@@ -782,11 +916,11 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                     required
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="১১ ডিজিটের মোবাইল নম্বর দিন"
+                    placeholder="১১ ডিজিটের মোবাইল নম্বর দিন (যেমন: 017xxxxxxxx)"
                     className="w-full px-4 py-3.5 rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-stone-900 text-base font-mono outline-hidden transition-all bg-white"
                   />
                   <span className="text-xs text-stone-500 block">
-                    অর্ডার কনফার্মেশনের জন্য সচল মোবাইল নম্বর দিন।
+                    অর্ডার কনফার্মেশনের জন্য আপনার সচল মোবাইল নম্বর লিখুন।
                   </span>
                 </div>
 
@@ -826,10 +960,10 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                           onChange={() => setDeliveryLocation('inside_dhaka')}
                           className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
                         />
-                        <span>ঢাকার ভেতরে (Inside Dhaka)</span>
+                        <span className="text-sm">ঢাকার ভেতরে (Inside Dhaka)</span>
                       </div>
                       <span className="font-mono text-sm">
-                        {isFreeDeliveryApplicable ? 'ফ্রি' : `৳${deliveryConfig.insideDhakaCharge}`}
+                        {isFreeDeliveryApplicable ? 'ফ্রি' : `৳${deliveryConfig.insideDhakaCharge ?? 80}`}
                       </span>
                     </label>
 
@@ -848,10 +982,10 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                           onChange={() => setDeliveryLocation('outside_dhaka')}
                           className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
                         />
-                        <span>ঢাকার বাইরে (Outside Dhaka)</span>
+                        <span className="text-sm">ঢাকার বাইরে (Outside Dhaka)</span>
                       </div>
                       <span className="font-mono text-sm">
-                        {isFreeDeliveryApplicable ? 'ফ্রি' : `৳${deliveryConfig.outsideDhakaCharge}`}
+                        {isFreeDeliveryApplicable ? 'ফ্রি' : `৳${deliveryConfig.outsideDhakaCharge ?? 160}`}
                       </span>
                     </label>
                   </div>
@@ -879,7 +1013,125 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                   </div>
                 </div>
 
-                {/* 7. Live Order Summary Breakdown */}
+                {/* 7. bKash Advance Payment Options */}
+                <div className="space-y-3 pt-2">
+                  <label className="block text-sm font-bold text-stone-800">
+                    ৭. পেমেন্ট মেথড (শুধুমাত্র বিকাশ):
+                  </label>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                        paymentMethod === 'ADVANCE_DELIVERY'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold'
+                          : 'border-stone-200 bg-stone-50 text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="pay_method"
+                          checked={paymentMethod === 'ADVANCE_DELIVERY'}
+                          onChange={() => setPaymentMethod('ADVANCE_DELIVERY')}
+                          className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <div>
+                          <div className="text-sm font-bold">ক্যাশ অন ডেলিভারি</div>
+                          <div className="text-xs text-stone-500 font-normal">
+                            অগ্রিম ডেলিভারি চার্জ বিকাশ (৳{deliveryFee})
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                        paymentMethod === 'FULL_BKASH'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold'
+                          : 'border-stone-200 bg-stone-50 text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="pay_method"
+                          checked={paymentMethod === 'FULL_BKASH'}
+                          onChange={() => setPaymentMethod('FULL_BKASH')}
+                          className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <div>
+                          <div className="text-sm font-bold">সম্পূর্ণ বিকাশ পেমেন্ট</div>
+                          <div className="text-xs text-stone-500 font-normal">
+                            মোট বিল ৳{grandTotal} বিকাশ করুন
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* bKash Payment Details Box */}
+                  {advancePayable > 0 && (
+                    <div className="p-4 bg-pink-50/70 rounded-2xl border border-pink-200 space-y-3.5">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-pink-600 text-white text-xs font-black flex items-center justify-center">
+                            ৳
+                          </span>
+                          <span className="text-xs font-bold text-pink-900">
+                            বিকাশ পার্সোনাল নম্বর (Send Money):
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-stone-900 bg-white px-2.5 py-1 rounded-md border border-pink-200 text-sm">
+                            {bkashConfig.personalNumber || '01316534171'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCopyBkash}
+                            className="px-2.5 py-1 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            {copiedBkash ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            <span>{copiedBkash ? 'কপি হয়েছে' : 'কপি'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-pink-800 leading-relaxed">
+                        বিকাশ অ্যাপ থেকে <strong>Send Money</strong> করে প্রদেয় <strong>৳{advancePayable}</strong> পাঠিয়ে নিচের বক্সে আপনার বিকাশ নম্বর ও ট্রানজেকশন আইডি লিখুন:
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-stone-700 mb-1">
+                            প্রেরকের বিকাশ নম্বর: <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="tel"
+                            value={senderBkashNumber}
+                            onChange={(e) => setSenderBkashNumber(e.target.value)}
+                            placeholder="যে নম্বর থেকে পাঠিয়েছেন"
+                            className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 bg-white font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-stone-700 mb-1">
+                            বিকাশ ট্রানজেকশন আইডি (TrxID): <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={bkashTrxId}
+                            onChange={(e) => setBkashTrxId(e.target.value)}
+                            placeholder="যেমন: BL7A8X9K"
+                            className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 bg-white font-mono uppercase"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 8. Live Order Summary Breakdown */}
                 <div className="bg-stone-50 p-5 rounded-2xl border border-stone-200 space-y-2 text-sm">
                   <div className="flex justify-between text-stone-600">
                     <span>পণ্যের মূল্য ({selectedVariant.label} x {quantity}):</span>
@@ -891,13 +1143,17 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                       {deliveryFee === 0 ? 'ফ্রি (FREE)' : `৳${deliveryFee}`}
                     </span>
                   </div>
-                  <div className="border-t border-stone-300 pt-2 flex justify-between text-base sm:text-lg font-black text-stone-900">
-                    <span>সর্বমোট বিল (ক্যাশ অন ডেলিভারি):</span>
-                    <span className="text-emerald-700 font-mono text-xl">৳{grandTotal.toLocaleString()}</span>
+                  <div className="border-t border-stone-300 pt-2 flex justify-between text-stone-700">
+                    <span className="font-bold">বিকাশে প্রদেয় অগ্রিম চার্জ:</span>
+                    <span className="font-mono font-bold text-pink-700">৳{advancePayable.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-base sm:text-lg font-black text-stone-900 pt-1 border-t border-dashed border-stone-300">
+                    <span>পণ্য হাতে পেয়ে বাকি প্রদেয়:</span>
+                    <span className="text-emerald-700 font-mono text-xl">৳{dueOnDelivery.toLocaleString()}</span>
                   </div>
                 </div>
 
-                {/* 8. Big Green Pulse Order Button */}
+                {/* 9. Big Green Pulse Order Button */}
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -911,14 +1167,16 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                   ) : (
                     <>
                       <CheckCircle2 className="w-6 h-6 text-emerald-200" />
-                      <span>✅ অর্ডার কনফার্ম করুন (৳{grandTotal.toLocaleString()})</span>
+                      <span>
+                        ✅ অর্ডার কনফার্ম করুন {advancePayable > 0 ? `(অগ্রিম বিকাশ: ৳${advancePayable})` : `(৳${grandTotal})`}
+                      </span>
                     </>
                   )}
                 </button>
 
                 <p className="text-center text-xs text-stone-500 flex items-center justify-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>কোনো অগ্রিম পেমেন্টের প্রয়োজন নেই, পণ্য হাতে পেয়ে মূল্য পরিশোধ করবেন।</span>
+                  <span>নিরাপদ বিকাশ লেনদেন ও শতভাগ বিশ্বস্ত ডেলিভারি সেবা।</span>
                 </p>
 
               </form>
@@ -957,9 +1215,11 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
       {/* 10. STICKY MOBILE BOTTOM BAR */}
       <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-stone-200 p-3 sm:hidden z-40 shadow-2xl flex items-center justify-between gap-3">
         <div className="leading-tight">
-          <span className="text-[11px] text-stone-500 block">মোট মূল্য (ক্যাশ অন ডেলিভারি):</span>
+          <span className="text-[11px] text-stone-500 block">
+            {advancePayable > 0 ? 'অগ্রিম ডেলিভারি চার্জ:' : 'মোট মূল্য:'}
+          </span>
           <span className="text-lg font-black text-emerald-700 font-mono">
-            ৳{grandTotal.toLocaleString()}
+            ৳{(advancePayable > 0 ? advancePayable : grandTotal).toLocaleString()}
           </span>
         </div>
 
@@ -973,7 +1233,13 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
           </a>
 
           <button
-            onClick={scrollToForm}
+            onClick={() => {
+              if (onOpenCheckout) {
+                onOpenCheckout(product, quantity, selectedVariant);
+              } else {
+                scrollToForm();
+              }
+            }}
             type="button"
             className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
           >

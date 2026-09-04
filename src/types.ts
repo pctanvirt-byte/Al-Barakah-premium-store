@@ -194,7 +194,7 @@ export interface Order {
   totalAmount?: number;
   currency?: 'BDT' | 'USD';
   paymentMethod?: string;
-  paymentStatus?: 'UNPAID' | 'PAID' | 'REFUNDED';
+  paymentStatus?: 'UNPAID' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED';
   orderStatus?: 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
   couponCode?: string;
   notes?: string;
@@ -227,8 +227,11 @@ export interface Order {
   paymentRefNumber?: string;
   advancePaymentType?: 'DELIVERY_ONLY' | 'FULL_PAYMENT' | 'NONE';
   advanceAmount?: number;
+  paidAmount?: number;
+  dueAmount?: number;
   dueAmountOnDelivery?: number;
   deliveryPaymentStatus?: 'ADVANCE_PAID' | 'ADVANCE_PENDING' | 'FULL_PAID' | 'COD_PENDING' | 'VERIFIED';
+  paymentDetails?: any;
   isFakeSuspected?: boolean;
 }
 
