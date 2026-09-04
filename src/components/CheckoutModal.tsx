@@ -403,7 +403,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           required
                           value={formData.fullName}
                           onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                          placeholder="e.g. Tanvir Ahmed"
+                          placeholder="আপনার পূর্ণ নাম লিখুন"
                           className="w-full pl-10 pr-3 py-3 bg-white border border-stone-300 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-stone-900"
                         />
                         <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-3.5" />
@@ -424,7 +424,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           required
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
-                          placeholder="1712345678"
+                          placeholder="1XXXXXXXXX"
                           className="w-full px-3 py-3 bg-white border border-stone-300 rounded-r-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-stone-900 font-mono"
                           maxLength={11}
                         />
@@ -443,7 +443,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         rows={2}
                         value={formData.address}
                         onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        placeholder="House no, Road no, Area, Thana and District name..."
+                        placeholder="বাসা/রোড, এলাকা, থানা ও জেলা লিখুন..."
                         className="w-full p-3.5 bg-white border border-stone-300 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-stone-900 resize-none"
                       />
                     </div>

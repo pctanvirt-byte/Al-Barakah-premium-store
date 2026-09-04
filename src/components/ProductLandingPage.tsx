@@ -52,7 +52,9 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   const subheadline = lpConfig.subheadline || product.description;
   const highlightBadge = lpConfig.highlightBadge || '🔥 সীমিত সময়ের স্পেশাল অফার - ক্যাশ অন ডেলিভারি';
   const bannerNote = lpConfig.bannerNote || '🎉 আজকের বিশেষ অফার: ৫ লিটার ফ্যামিলি প্যাক নিলে ডেলিভারি সম্পূর্ণ ফ্রি!';
-  const customerHelpline = lpConfig.customerHelpline || '01712-345678';
+  const customerHelpline = (lpConfig.customerHelpline && lpConfig.customerHelpline !== '01712-345678')
+    ? lpConfig.customerHelpline
+    : '01316534171';
   
   const defaultVariants: LandingPageVariant[] = (lpConfig.variants && lpConfig.variants.length > 0)
     ? lpConfig.variants
@@ -107,8 +109,19 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   }, []);
 
   const scrollToForm = () => {
-    if (formRef.current) {
-      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const formElement = formRef.current || document.getElementById('order-form-section');
+    const container = document.getElementById('albarakah-sales-landing-page');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (container && typeof formElement.offsetTop === 'number') {
+        container.scrollTo({ top: Math.max(0, formElement.offsetTop - 70), behavior: 'smooth' });
+      }
+      setTimeout(() => {
+        const nameInput = formElement.querySelector('input[type="text"]') as HTMLInputElement | null;
+        if (nameInput) {
+          nameInput.focus();
+        }
+      }, 350);
     }
   };
 
@@ -240,7 +253,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans pb-24 selection:bg-emerald-500 selection:text-white" id="albarakah-sales-landing-page">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-50 text-stone-900 font-sans pb-24 selection:bg-emerald-500 selection:text-white" id="albarakah-sales-landing-page">
       
       {/* 1. TOP URGENCY ANNOUNCEMENT BAR */}
       <div className="bg-gradient-to-r from-emerald-900 via-stone-900 to-emerald-900 text-white text-xs sm:text-sm py-2.5 px-4 sticky top-0 z-40 shadow-md border-b border-emerald-800/40">
@@ -754,7 +767,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                     required
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="যেমন: মোঃ তানভীর হাসান"
+                    placeholder="আপনার সম্পূর্ণ নাম লিখুন"
                     className="w-full px-4 py-3.5 rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-stone-900 text-base outline-hidden transition-all bg-white"
                   />
                 </div>
@@ -769,7 +782,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                     required
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="যেমন: 017xxxxxxxx"
+                    placeholder="১১ ডিজিটের মোবাইল নম্বর দিন"
                     className="w-full px-4 py-3.5 rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-stone-900 text-base font-mono outline-hidden transition-all bg-white"
                   />
                   <span className="text-xs text-stone-500 block">
@@ -787,7 +800,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                     rows={3}
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="যেমন: বাসা নং ১২, রোড নং ৫, ব্লক সি, মিরপুর ১০, ঢাকা"
+                    placeholder="বাসা নং, রোড নং, এলাকা, থানা ও জেলা লিখুন..."
                     className="w-full px-4 py-3 rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-stone-900 text-sm outline-hidden transition-all bg-white"
                   />
                 </div>

@@ -46,7 +46,7 @@ export const LandingPageAdminModal: React.FC<LandingPageAdminModalProps> = ({
   const [subheadline, setSubheadline] = useState(existingConfig.subheadline || product.description);
   const [highlightBadge, setHighlightBadge] = useState(existingConfig.highlightBadge || '🔥 ফেসবুক স্পেশাল অফার - ক্যাশ অন ডেলিভারি');
   const [bannerNote, setBannerNote] = useState(existingConfig.bannerNote || '🎉 আজকের বিশেষ অফার: ৫ লিটার ফ্যামিলি প্যাক নিলে ডেলিভারি সম্পূর্ণ ফ্রি!');
-  const [customerHelpline, setCustomerHelpline] = useState(existingConfig.customerHelpline || '01712-345678');
+  const [customerHelpline, setCustomerHelpline] = useState(existingConfig.customerHelpline || '01316534171');
   const [guaranteeTitle, setGuaranteeTitle] = useState(existingConfig.guaranteeTitle || '১০০% খাঁটি মানের নিশ্চয়তা ও সহজ রিটার্ন গ্যারান্টি');
   const [guaranteeText, setGuaranteeText] = useState(
     existingConfig.guaranteeText || 
