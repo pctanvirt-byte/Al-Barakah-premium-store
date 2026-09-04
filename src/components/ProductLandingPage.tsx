@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Product, Order, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, LandingPageVariant, BKashPaymentConfig, DEFAULT_BKASH_CONFIG } from '../types';
 import { AlBarakahLogo } from './AlBarakahLogo';
+import { getCalculatedPrice } from '../utils/pricing';
 
 interface ProductLandingPageProps {
   product: Product;
@@ -53,19 +54,51 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
 
   // Dynamic landing page configuration with robust fallbacks
   const lpConfig = product.landingPage || {};
-  const headline = lpConfig.headline || product.name;
-  const subheadline = lpConfig.subheadline || product.description;
-  const highlightBadge = lpConfig.highlightBadge || '🔥 সীমিত সময়ের স্পেশাল অফার';
-  const bannerNote = lpConfig.bannerNote || (
-    deliveryConfig.enableFreeDelivery && deliveryConfig.freeDeliveryThreshold > 0
-      ? `🎉 ৳${deliveryConfig.freeDeliveryThreshold}+ এর অর্ডারে সারা দেশে ডেলিভারি সম্পূর্ণ ফ্রি!`
-      : '🎉 ১০০% আসল ও প্রিমিয়াম কোয়ালিটি পণ্য • সারা বাংলাদেশে দ্রুত হোম ডেলিভারি!'
-  );
+  const isOilProduct = (product.name || '').includes('তেল') || (product.name || '').toLowerCase().includes('oil');
+
+  // Sanitize any leftover mustard oil copy if this product is not mustard oil
+  const sanitizeText = (txt?: string, fallback: string = ''): string => {
+    if (!txt) return fallback;
+    if (!isOilProduct && (txt.includes('সরিষা') || txt.includes('তেল') || txt.includes('ঘানি') || txt.includes('ঝাঁঝ') || txt.includes('৫ লিটার') || txt.includes('ফ্যামিলি প্যাক'))) {
+      return fallback;
+    }
+    if (txt.includes('৫ লিটার ফ্যামিলি প্যাক')) {
+      return fallback;
+    }
+    return txt;
+  };
+
+  const headline = product.name;
+  const subheadline = product.description;
+  const highlightBadge = '🔥 সীমিত সময়ের স্পেশাল অফার';
+  const bannerNote = '🎉 ১০০% আসল ও বিশুদ্ধ প্রিমিয়াম কোয়ালিটি পণ্য • সারা বাংলাদেশে দ্রুত হোম ডেলিভারি!';
   const customerHelpline = (lpConfig.customerHelpline && lpConfig.customerHelpline !== '01712-345678')
     ? lpConfig.customerHelpline
     : '01316534171';
   
-  const defaultVariants: LandingPageVariant[] = (lpConfig.variants && lpConfig.variants.length > 0)
+  // Construct variants strictly from product.sizes if present
+  const parsedVariantsFromSizes: LandingPageVariant[] = (product.sizes && product.sizes.length > 0)
+    ? product.sizes.map((s, idx) => {
+        const baseVar = product.sizes![0];
+        const price = getCalculatedPrice(product.price, baseVar, s);
+        const originalPrice = product.originalPrice ? getCalculatedPrice(product.originalPrice, baseVar, s) : undefined;
+        return {
+          id: `var-size-${idx}`,
+          label: s,
+          size: s,
+          price,
+          originalPrice,
+          isPopular: idx === 0,
+          freeDelivery: false,
+        };
+      })
+    : [];
+
+  const defaultVariants: LandingPageVariant[] = parsedVariantsFromSizes.length > 0
+    ? parsedVariantsFromSizes
+    : (lpConfig.variants && lpConfig.variants.length > 0 && !(
+        !isOilProduct && lpConfig.variants.some(v => v.label?.includes('লিটার') || v.label?.includes('তেল'))
+      ))
     ? lpConfig.variants
     : [
         {
@@ -75,7 +108,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
           price: product.price,
           originalPrice: product.originalPrice,
           isPopular: true,
-          freeDelivery: product.price >= (deliveryConfig.freeDeliveryThreshold || 2000),
+          freeDelivery: false,
         }
       ];
 
@@ -142,10 +175,11 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   const unitPrice = selectedVariant.price;
   const subtotal = unitPrice * quantity;
   
-  // Delivery Fee calculation
+  // Delivery Fee calculation: Strict ৳80 inside Dhaka and ৳160 outside Dhaka
   const isFreeDeliveryApplicable = Boolean(
-    selectedVariant.freeDelivery || 
-    (deliveryConfig.enableFreeDelivery && subtotal >= (deliveryConfig.freeDeliveryThreshold || 0))
+    deliveryConfig.enableFreeDelivery && 
+    (deliveryConfig.freeDeliveryThreshold || 0) > 0 && 
+    subtotal >= (deliveryConfig.freeDeliveryThreshold || 0)
   );
 
   const getDeliveryFee = () => {
@@ -284,10 +318,14 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
     }
   };
 
-  const keyBenefits = (lpConfig.keyBenefits && lpConfig.keyBenefits.length > 0)
+  const keyBenefits = (product.features && product.features.length > 0)
+    ? product.features
+    : (lpConfig.keyBenefits && lpConfig.keyBenefits.length > 0 && !(
+        !isOilProduct && lpConfig.keyBenefits.some(b => b.includes('তেল') || b.includes('ঝাঁঝ') || b.includes('ঘানি'))
+      ))
     ? lpConfig.keyBenefits
     : [
-        '১০০% খাঁটি ও পরীক্ষিত প্রিমিয়াম মান',
+        '১০০% আসল ও বিশুদ্ধ প্রিমিয়াম মান',
         'নিরাপদ ও আকর্ষণীয় স্বাস্থ্যসম্মত প্যাকেজিং',
         'সারা বাংলাদেশে দ্রুত ও বিশ্বস্ত হোম ডেলিভারি',
         'বিকাশে সহজ অগ্রিম ডেলিভারি চার্জ পরিশোধ'
@@ -691,10 +729,10 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                 কেন আল-বারাকাহ প্রিমিয়াম সেরা?
               </span>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900">
-                {lpConfig.featuresTitle || `কেন আমাদের ${product.name} অনন্য ও সেরা?`}
+                {sanitizeText(lpConfig.featuresTitle, `কেন আমাদের ${product.name} অনন্য ও সেরা?`)}
               </h2>
               <p className="text-stone-600 text-sm sm:text-base">
-                {lpConfig.featuresSubtitle || 'আমরা কোনো প্রকার ক্ষতিকর উপাদান বা ভেজাল ছাড়া বিশুদ্ধ প্রিমিয়াম মানের পণ্য সরবরাহ করি।'}
+                {sanitizeText(lpConfig.featuresSubtitle, 'আমরা কোনো প্রকার ক্ষতিকর উপাদান বা ভেজাল ছাড়া বিশুদ্ধ প্রিমিয়াম মানের পণ্য সরবরাহ করি।')}
               </p>
             </div>
 
@@ -751,7 +789,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                   গুণগত নিশ্চয়তা ও সেবা
                 </span>
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-snug">
-                  {lpConfig.benefitsTitle || `${product.name}-এর বিশেষ বৈশিষ্ট্য ও প্রিমিয়াম গুণাবলী`}
+                  {sanitizeText(lpConfig.benefitsTitle, `${product.name}-এর বিশেষ বৈশিষ্ট্য ও প্রিমিয়াম গুণাবলী`)}
                 </h2>
                 <ul className="space-y-3.5 text-stone-200 text-sm sm:text-base">
                   {keyBenefits.map((benefit, i) => (
@@ -796,10 +834,10 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-xl sm:text-2xl font-extrabold text-amber-950">
-                  {lpConfig.guaranteeTitle || 'আমাদের ১০০% খাঁটি মান ও সন্তুষ্টির নিশ্চয়তা'}
+                  {sanitizeText(lpConfig.guaranteeTitle, 'আমাদের ১০০% খাঁটি মান ও সন্তুষ্টির নিশ্চয়তা')}
                 </h3>
                 <p className="text-stone-700 text-sm sm:text-base leading-relaxed">
-                  {lpConfig.guaranteeText || 'আল-বারাকাহ প্রিমিয়ামে আমরা প্রতিটি গ্রাহকের সন্তুষ্টিকে সর্বোচ্চ প্রাধান্য দিই। পার্সেল হাতে পেয়ে গুণগত মান দেখে নিয়ে তবেই বাকি মূল্য পরিশোধ করবেন। বিন্দুমাত্র অসন্তুষ্টি থাকলে সাথে সাথে আমাদের হেল্পলাইনে কল করে সমাধান নিতে পারবেন।'}
+                  {sanitizeText(lpConfig.guaranteeText, 'আল-বারাকাহ প্রিমিয়ামে আমরা প্রতিটি গ্রাহকের সন্তুষ্টিকে সর্বোচ্চ প্রাধান্য দিই। পার্সেল হাতে পেয়ে গুণগত মান দেখে নিয়ে তবেই বাকি মূল্য পরিশোধ করবেন। বিন্দুমাত্র অসন্তুষ্টি থাকলে সাথে সাথে আমাদের হেল্পলাইনে কল করে সমাধান নিতে পারবেন।')}
                 </p>
               </div>
             </div>
@@ -827,17 +865,22 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                 
                 {/* Direct Checkout Modal Option */}
                 {onOpenCheckout && (
-                  <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-                    <div className="text-xs sm:text-sm text-emerald-950">
-                      <span className="font-bold block">💡 ওয়েবসাইটের চেকআউট পেজে যেতে চান?</span>
-                      <span>সরাসরি চেকআউট উইন্ডোতে আরও সহজে অর্ডার করুন।</span>
+                  <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 rounded-2xl border-2 border-emerald-300 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-xs">
+                    <div className="text-xs sm:text-sm text-emerald-950 space-y-0.5">
+                      <span className="font-extrabold text-sm sm:text-base block text-emerald-900">
+                        ⚡ সরাসরি আমাদের ফুল চেকআউটে অর্ডার করুন
+                      </span>
+                      <span className="text-stone-600">
+                        ঢাকার ভেতরে ৳৮০ • ঢাকার বাইরে ৳১৬০ • সম্পূর্ণ নিরাপদ বিকাশ ও ক্যাশ অন ডেলিভারি
+                      </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => onOpenCheckout(product, quantity, selectedVariant)}
-                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+                      className="w-full sm:w-auto px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-2"
                     >
-                      চেকআউট পেজ খুলুন
+                      <span>সরাসরি চেকআউট পেজে যান</span>
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
                 )}

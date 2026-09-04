@@ -56,7 +56,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   bkashConfig = DEFAULT_BKASH_CONFIG,
   enableCoupons = false,
 }) => {
-  const [selectedZone, setSelectedZone] = useState<'inside' | 'outside' | 'sub_dhaka'>('inside');
+  const [selectedZone, setSelectedZone] = useState<'inside' | 'outside'>('inside');
   const [formData, setFormData] = useState({
     fullName: currentUser?.name || '',
     phone: currentUser?.phone ? currentUser.phone.replace('+880', '') : '',
@@ -93,9 +93,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     netProductTotal >= deliveryConfig.freeDeliveryThreshold
   );
 
-  const getBaseZoneCharge = (zone: 'inside' | 'outside' | 'sub_dhaka') => {
+  const getBaseZoneCharge = (zone: 'inside' | 'outside') => {
     if (zone === 'inside') return deliveryConfig.insideDhakaCharge ?? 80;
-    if (zone === 'sub_dhaka') return deliveryConfig.subDhakaCharge ?? 100;
     return deliveryConfig.outsideDhakaCharge ?? 160;
   };
 
@@ -154,12 +153,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     onClose();
   };
 
-  const handleDeliverySelect = (type: 'inside' | 'outside' | 'sub_dhaka') => {
+  const handleDeliverySelect = (type: 'inside' | 'outside') => {
     setSelectedZone(type);
     if (type === 'inside') {
       setFormData((prev) => ({ ...prev, cityDistrict: 'Inside Dhaka' }));
-    } else if (type === 'sub_dhaka') {
-      setFormData((prev) => ({ ...prev, cityDistrict: 'Dhaka Suburb (Savar/Gazipur)' }));
     } else {
       setFormData((prev) => ({ ...prev, cityDistrict: 'Outside Dhaka' }));
     }
@@ -498,34 +495,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Dhaka Suburb (Optional / If enabled) */}
-                    {deliveryConfig.enableSubDhaka && (
-                      <div
-                        onClick={() => handleDeliverySelect('sub_dhaka')}
-                        className={`p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-                          selectedZone === 'sub_dhaka'
-                            ? 'border-amber-600 bg-amber-50/50 shadow-xs'
-                            : 'border-stone-200 bg-white hover:border-stone-300'
-                        }`}
-                      >
-                        <div className="space-y-0.5">
-                          <p className="text-xs sm:text-sm font-bold text-stone-900">Dhaka Suburb</p>
-                          <p className="text-xs text-amber-700 font-semibold">
-                            {isFreeDeliveryQualified ? (
-                              <span className="text-emerald-600 font-bold">FREE (৳০)</span>
-                            ) : (
-                              `৳${deliveryConfig.subDhakaCharge ?? 100} Delivery Charge`
-                            )}
-                          </p>
-                          <p className="text-[10px] text-stone-500">সাভার, গাজীপুর, কেরানীগঞ্জ</p>
-                        </div>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                          selectedZone === 'sub_dhaka' ? 'border-amber-600 bg-amber-600' : 'border-stone-300'
-                        }`}>
-                          {selectedZone === 'sub_dhaka' && <div className="w-2 h-2 rounded-full bg-white" />}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Outside Dhaka */}
                     <div

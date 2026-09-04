@@ -20,6 +20,7 @@ import {
   Minimize2
 } from 'lucide-react';
 import { Product, ProductLandingPageConfig, LandingPageVariant } from '../types';
+import { getCalculatedPrice } from '../utils/pricing';
 
 interface LandingPageAdminModalProps {
   isOpen: boolean;
@@ -39,67 +40,77 @@ export const LandingPageAdminModal: React.FC<LandingPageAdminModalProps> = ({
   if (!isOpen) return null;
 
   const existingConfig = product.landingPage || {};
+  const isOil = (product.name || '').includes('তেল') || (product.name || '').toLowerCase().includes('oil');
+  const hasMustardCopy = !isOil && (
+    (existingConfig.bannerNote || '').includes('৫ লিটার') || 
+    (existingConfig.guaranteeText || '').includes('তেলের ঝাঁঝ') ||
+    (existingConfig.variants?.[0]?.label || '').includes('লিটার বোতল')
+  );
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [enabled, setEnabled] = useState(existingConfig.enabled ?? true);
   const [headline, setHeadline] = useState(existingConfig.headline || product.name);
   const [subheadline, setSubheadline] = useState(existingConfig.subheadline || product.description);
-  const [highlightBadge, setHighlightBadge] = useState(existingConfig.highlightBadge || '🔥 ফেসবুক স্পেশাল অফার - ক্যাশ অন ডেলিভারি');
-  const [bannerNote, setBannerNote] = useState(existingConfig.bannerNote || '🎉 আজকের বিশেষ অফার: ৫ লিটার ফ্যামিলি প্যাক নিলে ডেলিভারি সম্পূর্ণ ফ্রি!');
+  const [highlightBadge, setHighlightBadge] = useState(existingConfig.highlightBadge || '🔥 সীমিত সময়ের স্পেশাল অফার - ক্যাশ অন ডেলিভারি');
+  const [bannerNote, setBannerNote] = useState(
+    (!hasMustardCopy && existingConfig.bannerNote && !existingConfig.bannerNote.includes('৫ লিটার ফ্যামিলি প্যাক'))
+      ? existingConfig.bannerNote
+      : '🎉 ১০০% আসল ও বিশুদ্ধ প্রিমিয়াম কোয়ালিটি পণ্য • সারা বাংলাদেশে দ্রুত হোম ডেলিভারি!'
+  );
   const [customerHelpline, setCustomerHelpline] = useState(existingConfig.customerHelpline || '01316534171');
-  const [guaranteeTitle, setGuaranteeTitle] = useState(existingConfig.guaranteeTitle || '১০০% খাঁটি মানের নিশ্চয়তা ও সহজ রিটার্ন গ্যারান্টি');
+  const [guaranteeTitle, setGuaranteeTitle] = useState(existingConfig.guaranteeTitle || '১০০% খাঁটি মান ও সন্তুষ্টির নিশ্চয়তা');
   const [guaranteeText, setGuaranteeText] = useState(
-    existingConfig.guaranteeText || 
-    'ডেলিভারি ম্যান থাকা অবস্থায় বোতলের মুখ সামান্য খুলে তেলের ঝাঁঝ, ঘনত্ব ও সুবাস নিজে পরীক্ষা করুন। বিন্দুমাত্র অপছন্দ হলে সাথে সাথে কোনো চার্জ ছাড়াই ফেরত দিতে পারবেন।'
+    (!hasMustardCopy && existingConfig.guaranteeText && !existingConfig.guaranteeText.includes('তেলের ঝাঁঝ'))
+      ? existingConfig.guaranteeText 
+      : 'পার্সেল হাতে পেয়ে ডেলিভারি ম্যানের উপস্থিতিতে পণ্য দেখে নিশ্চিত হয়ে তবেই বাকি মূল্য পরিশোধ করবেন। বিন্দুমাত্র অসন্তুষ্টি থাকলে সাথে সাথে হেল্পলাইনে কল করে সমাধান নিতে পারবেন।'
   );
 
   // Key benefits bullets
   const [keyBenefits, setKeyBenefits] = useState<string[]>(
-    existingConfig.keyBenefits && existingConfig.keyBenefits.length > 0
+    (product.features && product.features.length > 0)
+      ? product.features
+      : (!hasMustardCopy && existingConfig.keyBenefits && existingConfig.keyBenefits.length > 0 && !existingConfig.keyBenefits.some(b => b.includes('ঘানি ভাঙা')))
       ? existingConfig.keyBenefits
       : [
-          '১০০% ঐতিহ্যবাহী কাঠের ঘানি ভাঙা দেশি সরিষার তেল',
-          'কোনো প্রকার কেমিক্যাল, প্রিজারভেটিভ বা কৃত্রিম ঝাঁঝ মুক্ত',
-          'উচ্চ ঝাঁঝ, প্রাকৃতিক সোনালী রং এবং স্বাস্থ্যকর খাঁটি পুষ্টি',
-          'ডেলিভারি ম্যানের সামনে ঘ্রাণ ও ঝাঁঝ দেখে মূল্য পরিশোধের সুবিধা'
+          '১০০% খাঁটি ও সর্বোচ্চ প্রিমিয়াম কোয়ালিটি',
+          'সম্পূর্ণ নির্ভেজাল ও স্বাস্থ্যসম্মত উপাদান',
+          'নিরাপদ ও আকর্ষণীয় সুরক্ষিত প্যাকেজিং',
+          'সারা বাংলাদেশে দ্রুত ও নির্ভরযোগ্য হোম ডেলিভারি'
         ]
   );
   const [newBenefitInput, setNewBenefitInput] = useState('');
 
-  // Variants
-  const [variants, setVariants] = useState<LandingPageVariant[]>(
-    existingConfig.variants && existingConfig.variants.length > 0
-      ? existingConfig.variants
-      : [
-          {
-            id: 'v-1l',
-            label: '১ লিটার বোতল',
-            size: '1 Litre',
-            price: product.price ? Math.round(product.price * 0.25) || 350 : 350,
-            originalPrice: 400,
-            isPopular: false,
-            freeDelivery: false,
-          },
-          {
-            id: 'v-2l',
-            label: '২ লিটার বোতল',
-            size: '2 Litre',
-            price: product.price ? Math.round(product.price * 0.48) || 680 : 680,
-            originalPrice: 780,
-            isPopular: false,
-            freeDelivery: false,
-          },
-          {
-            id: 'v-5l',
-            label: '৫ লিটার ফ্যামিলি প্যাক',
-            size: '5 Litre',
-            price: product.price || 1650,
-            originalPrice: product.originalPrice || 1850,
-            isPopular: true,
-            freeDelivery: true,
-          },
-        ]
-  );
+  // Variants from sizes or existing config
+  const initialVariants: LandingPageVariant[] = (product.sizes && product.sizes.length > 0)
+    ? product.sizes.map((s, idx) => {
+        const baseVar = product.sizes![0];
+        const price = getCalculatedPrice(product.price, baseVar, s);
+        const originalPrice = product.originalPrice ? getCalculatedPrice(product.originalPrice, baseVar, s) : undefined;
+        return {
+          id: `v-${idx + 1}`,
+          label: s,
+          size: s,
+          price,
+          originalPrice,
+          isPopular: idx === 0,
+          freeDelivery: false,
+        };
+      })
+    : (!hasMustardCopy && existingConfig.variants && existingConfig.variants.length > 0)
+    ? existingConfig.variants
+    : [
+        {
+          id: 'v-standard',
+          label: product.weight || product.name,
+          size: product.weight || 'Standard',
+          price: product.price,
+          originalPrice: product.originalPrice,
+          isPopular: true,
+          freeDelivery: false,
+        }
+      ];
+
+  const [variants, setVariants] = useState<LandingPageVariant[]>(initialVariants);
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedAdCopy, setCopiedAdCopy] = useState(false);
@@ -109,13 +120,13 @@ export const LandingPageAdminModal: React.FC<LandingPageAdminModalProps> = ({
     ? `${window.location.origin}${window.location.pathname}?landing=${product.id}`
     : `https://albarakahpremium.com?landing=${product.id}`;
 
-  const sampleAdCopy = `🌿 আসল কাঠের ঘানি ভাঙা ১০০% খাঁটি দেশি সরিষার তেল!
-🔥 ঝাঁঝ ও স্বাদে আপসহীন — পরিবারের সুস্বাস্থ্যে খাঁটি পুষ্টির নিশ্চয়তা।
+  const sampleAdCopy = `🌿 ১০০% আসল ও বিশুদ্ধ ${product.name}!
+✨ প্রিমিয়াম কোয়ালিটি — পরিবারের সুস্বাস্থ্যে আপসহীন খাঁটি মান।
 
-✅ কোনো কেমিক্যাল বা কৃত্রিম ফ্লেভার নেই।
-✅ কাঠের ঘানিতে কোল্ড প্রেসড করায় পুষ্টিগুণ অক্ষুণ্ণ।
-🚚 সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (পণ্য হাতে পেয়ে দেখে টাকা দিন)।
-🎉 স্পেশাল অফার: ৫ লিটার নিলে ডেলিভারি সম্পূর্ণ ফ্রি!
+✅ সম্পূর্ণ নির্ভেজাল ও স্বাস্থ্যসম্মত।
+✅ নিরাপদ ও আকর্ষণীয় প্যাকেজিং।
+🚚 সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (পণ্য দেখে নেওয়ার সুবিধা)।
+📦 ডেলিভারি চার্জ: ঢাকার ভেতরে ৳৮০, ঢাকার বাইরে ৳১৬০।
 
 👉 সরাসরি অর্ডার করতে নিচের লিংকে ক্লিক করুন:
 ${fullAdUrl}
