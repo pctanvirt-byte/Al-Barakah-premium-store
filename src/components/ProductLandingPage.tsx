@@ -24,7 +24,10 @@ import {
   X,
   Share2,
   Check,
-  Copy
+  Copy,
+  Layers,
+  Minus,
+  Plus
 } from 'lucide-react';
 import { Product, Order, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, LandingPageVariant, BKashPaymentConfig, DEFAULT_BKASH_CONFIG } from '../types';
 import { AlBarakahLogo } from './AlBarakahLogo';
@@ -198,6 +201,18 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
   const dueOnDelivery = isFreeDeliveryApplicable
     ? grandTotal
     : (paymentMethod === 'FULL_BKASH' ? 0 : subtotal);
+
+  const discountPercentage = selectedVariant.originalPrice && selectedVariant.originalPrice > unitPrice
+    ? Math.round(((selectedVariant.originalPrice - unitPrice) / selectedVariant.originalPrice) * 100)
+    : 0;
+
+  const handlePrevImg = () => {
+    setSelectedImgIndex((prev) => (prev > 0 ? prev - 1 : allImages.length - 1));
+  };
+
+  const handleNextImg = () => {
+    setSelectedImgIndex((prev) => (prev < allImages.length - 1 ? prev + 1 : 0));
+  };
 
   const handleShareLink = () => {
     if (typeof window !== 'undefined') {
@@ -538,46 +553,24 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
       {!orderSuccess && (
         <main className="max-w-6xl mx-auto px-4 py-6 space-y-12 sm:space-y-16">
           
-          {/* 4. HERO SECTION */}
-          <section className="bg-white rounded-3xl border border-stone-200 shadow-xl overflow-hidden p-5 sm:p-8 lg:p-10">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          {/* 4. PRODUCT SHOWCASE (MATCHING OUR OFFICIAL PRODUCT PAGE) */}
+          <section className="bg-white rounded-3xl border border-stone-200 shadow-xl overflow-hidden p-4 sm:p-8 lg:p-10">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10">
               
-              {/* Media Column (Gallery & Real Photos) */}
-              <div className="lg:col-span-6 space-y-4">
-                <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-50 border border-stone-200 flex items-center justify-center p-4 group">
-                  <img 
-                    src={allImages[selectedImgIndex] || allImages[0]} 
-                    alt={product.name}
-                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
-                    referrerPolicy="no-referrer"
-                  />
-
-                  {/* 100% Authentic Quality Badge */}
-                  <div className="absolute top-4 left-4 bg-emerald-800/90 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md">
-                    <ShieldCheck className="w-4 h-4 text-emerald-300" />
-                    <span>১০০% খাঁটি ও আসল পণ্য</span>
-                  </div>
-
-                  {/* Discount percentage tag */}
-                  {selectedVariant.originalPrice && selectedVariant.originalPrice > selectedVariant.price && (
-                    <div className="absolute top-4 right-4 bg-red-600 text-white text-xs font-extrabold px-3 py-1.5 rounded-full shadow-md animate-bounce">
-                      {Math.round(((selectedVariant.originalPrice - selectedVariant.price) / selectedVariant.originalPrice) * 100)}% ছাড়
-                    </div>
-                  )}
-                </div>
-
-                {/* Thumbnails */}
+              {/* LEFT COLUMN: IMAGE GALLERY */}
+              <div className="md:col-span-6 flex flex-col md:flex-row gap-3">
+                {/* Vertical Desktop Thumbnails */}
                 {allImages.length > 1 && (
-                  <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                  <div className="hidden md:flex flex-col gap-2 order-2 md:order-1 w-20 max-h-[480px] overflow-y-auto no-scrollbar py-1">
                     {allImages.map((img, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => setSelectedImgIndex(idx)}
-                        className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 transition-all p-1 bg-white shrink-0 cursor-pointer ${
-                          selectedImgIndex === idx 
-                            ? 'border-emerald-600 ring-2 ring-emerald-500/30' 
-                            : 'border-stone-200 opacity-70 hover:opacity-100'
+                        className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 transition-all p-1 bg-white shrink-0 cursor-pointer ${
+                          selectedImgIndex === idx
+                            ? 'border-[#f38018] shadow-md ring-2 ring-[#f38018]/20'
+                            : 'border-stone-200 hover:border-stone-300 opacity-70 hover:opacity-100'
                         }`}
                       >
                         <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
@@ -586,262 +579,232 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
                   </div>
                 )}
 
-                {/* Live Social Proof Badge */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 text-xs sm:text-sm font-medium">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping inline-block" />
-                    <span>বর্তমানে <strong>{liveViewers} জন</strong> এই পেজটি দেখছেন</span>
-                  </div>
-                  <span className="text-red-700 font-bold">স্টক সীমিত!</span>
+                {/* Main Large Image Display */}
+                <div className="relative flex-1 order-1 md:order-2 aspect-square rounded-2xl overflow-hidden bg-stone-50 border border-stone-200/80 flex items-center justify-center p-4">
+                  <img
+                    src={allImages[selectedImgIndex] || allImages[0]}
+                    alt={product.name}
+                    className="w-full h-full object-contain select-none"
+                    referrerPolicy="no-referrer"
+                  />
+
+                  {/* Left/Right Navigation Arrows if > 1 */}
+                  {allImages.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handlePrevImg}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-stone-800 shadow-md border border-stone-200 flex items-center justify-center transition-all cursor-pointer"
+                        aria-label="Previous image"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleNextImg}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-stone-800 shadow-md border border-stone-200 flex items-center justify-center transition-all cursor-pointer"
+                        aria-label="Next image"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
                 </div>
-              </div>
 
-              {/* Product Headline & Fast CTA */}
-              <div className="lg:col-span-6 space-y-6">
-                
-                {/* Special Highlight Tag */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                  <span>{highlightBadge}</span>
-                </div>
-
-                {/* Main Headline */}
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-stone-900 leading-tight">
-                  {headline}
-                </h1>
-
-                {/* Rating & Verified Tag */}
-                <div className="flex items-center gap-3 flex-wrap text-sm">
-                  <div className="flex items-center gap-1 text-amber-500">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                {/* Mobile Horizontal Thumbnails */}
+                {allImages.length > 1 && (
+                  <div className="flex md:hidden items-center gap-2 overflow-x-auto pb-1 order-3">
+                    {allImages.map((img, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedImgIndex(idx)}
+                        className={`relative w-14 h-14 rounded-xl overflow-hidden border-2 transition-all p-1 bg-white shrink-0 cursor-pointer ${
+                          selectedImgIndex === idx
+                            ? 'border-[#f38018] ring-2 ring-[#f38018]/20'
+                            : 'border-stone-200 opacity-70'
+                        }`}
+                      >
+                        <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                      </button>
                     ))}
                   </div>
-                  <span className="font-bold text-stone-800">৫.০ / ৫.০</span>
-                  <span className="text-stone-400">•</span>
-                  <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded text-xs">
-                    ৪৫০+ ভেরিফায়েড কাস্টমার রিভিউ
-                  </span>
-                </div>
+                )}
+              </div>
 
-                {/* Clean, formatted description */}
-                <div className="border-t border-b border-stone-100 py-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-md mb-2 inline-block">
-                    পণ্য বিবরণী ও বিশেষত্ব
-                  </span>
-                  {renderFormattedDescription(subheadline || product.description)}
-                </div>
-
-                {/* Interactive Package Cards */}
-                <div className="space-y-3 pt-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-600">
-                    প্যাকেজ সাইজ নির্বাচন করুন:
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {defaultVariants.map((variant) => {
-                      const isSelected = selectedVariant.id === variant.id;
-                      return (
-                        <div
-                          key={variant.id}
-                          onClick={() => setSelectedVariant(variant)}
-                          className={`relative p-3.5 rounded-2xl border-2 transition-all cursor-pointer text-left flex flex-col justify-between ${
-                            isSelected
-                              ? 'border-emerald-600 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
-                              : 'border-stone-200 bg-white hover:border-stone-300'
-                          }`}
-                        >
-                          {variant.isPopular && (
-                            <span className="absolute -top-2.5 right-2 bg-amber-500 text-stone-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                              বেস্ট সেলার
-                            </span>
-                          )}
-                          <div>
-                            <div className="font-bold text-stone-900 text-sm">{variant.label}</div>
-                            {variant.freeDelivery && (
-                              <span className="text-[11px] font-bold text-emerald-700 block mt-0.5">
-                                🚚 ফ্রি ডেলিভারি
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-2 pt-2 border-t border-stone-200/60 flex items-baseline gap-2">
-                            <span className="text-lg font-black text-emerald-700">
-                              ৳{variant.price.toLocaleString()}
-                            </span>
-                            {variant.originalPrice && variant.originalPrice > variant.price && (
-                              <span className="text-xs text-stone-400 line-through">
-                                ৳{variant.originalPrice.toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+              {/* RIGHT COLUMN: PRODUCT INFO, PRICE, VARIANT, QUANTITY & BUTTONS */}
+              <div className="md:col-span-6 space-y-4">
+                
+                {/* Category & Rating */}
+                <div className="flex items-center justify-between text-xs text-stone-500">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold uppercase tracking-wider text-[#f38018] bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100">
+                      {product.category || 'Featured'}
+                    </span>
+                    {product.subcategory && (
+                      <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                        {product.subcategory}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                    <span className="font-bold text-stone-800">5.0</span>
+                    <span className="text-stone-400">({product.reviewCount || 1} Reviews)</span>
                   </div>
                 </div>
 
-                {/* Quick CTA Button */}
+                {/* Product Title */}
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-stone-900 leading-snug">
+                  {product.name}
+                </h1>
+
+                {/* Pricing Row */}
+                <div className="flex items-center gap-3 flex-wrap py-1 font-bengali">
+                  <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#f38018] tracking-tight select-none">
+                    ৳{(unitPrice ?? 0).toLocaleString()}
+                  </span>
+                  {selectedVariant.originalPrice && selectedVariant.originalPrice > unitPrice && (
+                    <span className="text-base sm:text-lg text-stone-400 line-through select-none">
+                      ৳{(selectedVariant.originalPrice ?? 0).toLocaleString()}
+                    </span>
+                  )}
+                  {discountPercentage > 0 && (
+                    <span className="text-xs font-bold text-white bg-[#00a86b] px-2.5 py-1 rounded-md shadow-2xs font-sans">
+                      Save {discountPercentage}%
+                    </span>
+                  )}
+                </div>
+
+                <div className="h-px bg-stone-200 w-full" />
+
+                {/* Variant Selector (Matching Product Page Style) */}
+                {defaultVariants.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs sm:text-sm font-bold text-stone-800 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-[#f38018]" />
+                      Select Weight / Size:
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {defaultVariants.map((variant) => {
+                        const isSelected = selectedVariant.id === variant.id;
+                        return (
+                          <button
+                            key={variant.id}
+                            type="button"
+                            onClick={() => setSelectedVariant(variant)}
+                            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#f38018] text-white border-[#f38018] shadow-sm'
+                                : 'bg-stone-50 border-stone-200 text-stone-700 hover:border-[#f38018]'
+                            }`}
+                          >
+                            <span>{variant.label}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quantity Selector */}
+                <div className="flex items-center justify-between py-2 border-y border-stone-100">
+                  <span className="text-xs sm:text-sm font-bold text-stone-700">Quantity:</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center border border-stone-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        disabled={quantity <= 1}
+                        className="w-9 h-9 flex items-center justify-center text-stone-600 hover:bg-stone-100 disabled:opacity-30 cursor-pointer transition-colors"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-10 text-center font-bold text-stone-900 text-sm">{quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQuantity(quantity + 1)}
+                        className="w-9 h-9 flex items-center justify-center text-stone-600 hover:bg-stone-100 cursor-pointer transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <span className="text-sm font-bold text-stone-600">
+                      Total: <strong className="text-[#f38018] font-mono text-base">৳{subtotal.toLocaleString()}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* CTA Action Buttons */}
                 <div className="pt-2 flex flex-col sm:flex-row gap-3">
                   <button
-                    onClick={() => {
-                      if (onOpenCheckout) {
-                        onOpenCheckout(product, quantity, selectedVariant);
-                      } else {
-                        scrollToForm();
-                      }
-                    }}
                     type="button"
-                    className="flex-1 py-4 px-6 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-lg rounded-2xl shadow-xl shadow-emerald-700/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
+                    onClick={scrollToForm}
+                    className="flex-1 py-3.5 px-6 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-base rounded-xl shadow-lg shadow-emerald-700/20 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>👉 এখনই অর্ডার করুন</span>
+                    <span>👉 অর্ডার করতে নিচের ফর্ম পূরণ করুন</span>
                     <ArrowRight className="w-5 h-5" />
                   </button>
 
                   <a
                     href={`tel:${customerHelpline}`}
-                    className="px-5 py-4 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 border border-stone-300"
+                    className="px-5 py-3.5 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 border border-stone-300"
                   >
                     <PhoneCall className="w-4 h-4 text-emerald-700" />
                     <span>কল করুন</span>
                   </a>
                 </div>
 
-                {/* Micro guarantees */}
-                <div className="grid grid-cols-2 gap-3 pt-2 text-xs text-stone-600 border-t border-stone-100">
+                {/* Delivery Highlights */}
+                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-600 space-y-1">
                   <div className="flex items-center gap-2">
                     <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>বিকাশে অগ্রিম ডেলিভারি চার্জ</span>
+                    <span><strong>ডেলিভারি চার্জ:</strong> ঢাকার ভেতরে ৳৮০ • ঢাকার বাইরে ৳১৬০</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <RotateCcw className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>চেক করে বাকি মূল্য পরিশোধ</span>
+                    <span><strong>ক্যাশ অন ডেলিভারি:</strong> পার্সেল দেখে বাকি মূল্য পরিশোধের সুবিধা</span>
                   </div>
                 </div>
 
               </div>
-
             </div>
           </section>
 
-          {/* 5. WHY OUR PRODUCT IS 100% PURE & AUTHENTIC */}
-          <section className="space-y-8 text-center">
-            <div className="max-w-2xl mx-auto space-y-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-emerald-800 bg-emerald-100/70 px-3.5 py-1 rounded-full">
-                কেন আল-বারাকাহ প্রিমিয়াম সেরা?
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900">
-                {sanitizeText(lpConfig.featuresTitle, `কেন আমাদের ${product.name} অনন্য ও সেরা?`)}
-              </h2>
-              <p className="text-stone-600 text-sm sm:text-base">
-                {sanitizeText(lpConfig.featuresSubtitle, 'আমরা কোনো প্রকার ক্ষতিকর উপাদান বা ভেজাল ছাড়া বিশুদ্ধ প্রিমিয়াম মানের পণ্য সরবরাহ করি।')}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              
-              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-xs text-left space-y-3 hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xl">
-                  🛡️
-                </div>
-                <h3 className="font-bold text-stone-900 text-lg">১০০% আসল ও খাঁটি পণ্য</h3>
-                <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-                  সরাসরি বিশ্বস্ত ও খাঁটি উৎস থেকে বাছাইকৃত উপাদান দিয়ে সর্বোচ্চ মান নিশ্চিত করা হয়।
-                </p>
-              </div>
-
-              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-xs text-left space-y-3 hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xl">
-                  🌿
-                </div>
-                <h3 className="font-bold text-stone-900 text-lg">সম্পূর্ণ নির্ভেজাল ও নিরাপদ</h3>
-                <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-                  কোনো ক্ষতিকর রাসায়নিক বা অস্বাস্থ্যকর উপাদান নেই, সম্পূর্ণ স্বাস্থ্যসম্মত ও হালাল।
-                </p>
-              </div>
-
-              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-xs text-left space-y-3 hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xl">
-                  🚚
-                </div>
-                <h3 className="font-bold text-stone-900 text-lg">সারা দেশে দ্রুত ডেলিভারি</h3>
-                <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-                  ঢাকার ভেতরে ও দেশের প্রতিটি জেলায় দ্রুত ও নিরাপদ হোম ডেলিভারি সেবা।
-                </p>
-              </div>
-
-              <div className="bg-white p-6 rounded-2xl border border-stone-200/90 shadow-xs text-left space-y-3 hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xl">
-                  🤝
-                </div>
-                <h3 className="font-bold text-stone-900 text-lg">যাচাই করে গ্রহণের সুবিধা</h3>
-                <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-                  ডেলিভারি ম্যানের উপস্থিতিতে পণ্য দেখে নিশ্চিত হয়ে তবেই বাকি মূল্য পরিশোধের সুযোগ।
-                </p>
-              </div>
-
-            </div>
-          </section>
-
-          {/* 6. KEY BENEFITS BULLETS */}
-          <section className="bg-gradient-to-br from-emerald-900 via-stone-900 to-teal-950 text-white rounded-3xl p-6 sm:p-10 lg:p-12 shadow-2xl space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-7 space-y-6">
-                <span className="text-xs font-bold uppercase tracking-widest text-emerald-300 bg-emerald-800/60 px-3.5 py-1 rounded-full border border-emerald-500/30">
-                  গুণগত নিশ্চয়তা ও সেবা
+          {/* 5. PRODUCT DESCRIPTION & HIGHLIGHTS */}
+          {(product.description || (product.features && product.features.length > 0)) && (
+            <section className="bg-white rounded-3xl border border-stone-200 p-6 sm:p-8 space-y-5">
+              <div className="border-b border-stone-100 pb-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 bg-emerald-50 px-3 py-1 rounded-md inline-block">
+                  পণ্য বিবরণী ও বিশেষত্ব
                 </span>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-snug">
-                  {sanitizeText(lpConfig.benefitsTitle, `${product.name}-এর বিশেষ বৈশিষ্ট্য ও প্রিমিয়াম গুণাবলী`)}
+                <h2 className="text-xl sm:text-2xl font-bold text-stone-900 mt-2">
+                  {product.name} সম্পর্কে বিস্তারিত
                 </h2>
-                <ul className="space-y-3.5 text-stone-200 text-sm sm:text-base">
-                  {keyBenefits.map((benefit, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-400/40">
-                        <Check className="w-3.5 h-3.5" />
-                      </div>
-                      <span>{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
 
-              <div className="lg:col-span-5 bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/15 text-center space-y-4">
-                <Award className="w-12 h-12 text-amber-400 mx-auto" />
-                <h3 className="text-xl font-bold text-white">১০০% গ্রাহক সন্তুষ্টি গ্যারান্টি</h3>
-                <p className="text-stone-300 text-xs sm:text-sm leading-relaxed">
-                  আল-বারাকাহ প্রিমিয়ামের প্রতিটি পণ্য অত্যন্ত যত্ন ও স্বাস্থ্যসম্মত পরিবেশে প্যাক করা হয়। আপনার সন্তুষ্টিই আমাদের প্রথম অগ্রাধিকার।
-                </p>
-                <button
-                  onClick={() => {
-                    if (onOpenCheckout) {
-                      onOpenCheckout(product, quantity, selectedVariant);
-                    } else {
-                      scrollToForm();
-                    }
-                  }}
-                  type="button"
-                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-xl transition-all shadow-lg text-sm sm:text-base cursor-pointer"
-                >
-                  এখনই অর্ডার করুন
-                </button>
-              </div>
-            </div>
-          </section>
+              {product.description && (
+                <div className="text-stone-700 text-sm sm:text-base leading-relaxed">
+                  {renderFormattedDescription(product.description)}
+                </div>
+              )}
 
-          {/* 7. AUTHENTICITY & MONEY BACK GUARANTEE */}
-          <section className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-6 sm:p-8 text-stone-900 space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-stone-950 flex items-center justify-center shrink-0 shadow-md">
-                <ShieldCheck className="w-7 h-7" />
-              </div>
-              <div className="space-y-1.5">
-                <h3 className="text-xl sm:text-2xl font-extrabold text-amber-950">
-                  {sanitizeText(lpConfig.guaranteeTitle, 'আমাদের ১০০% খাঁটি মান ও সন্তুষ্টির নিশ্চয়তা')}
-                </h3>
-                <p className="text-stone-700 text-sm sm:text-base leading-relaxed">
-                  {sanitizeText(lpConfig.guaranteeText, 'আল-বারাকাহ প্রিমিয়ামে আমরা প্রতিটি গ্রাহকের সন্তুষ্টিকে সর্বোচ্চ প্রাধান্য দিই। পার্সেল হাতে পেয়ে গুণগত মান দেখে নিয়ে তবেই বাকি মূল্য পরিশোধ করবেন। বিন্দুমাত্র অসন্তুষ্টি থাকলে সাথে সাথে আমাদের হেল্পলাইনে কল করে সমাধান নিতে পারবেন।')}
-                </p>
-              </div>
-            </div>
-          </section>
+              {product.features && product.features.length > 0 && (
+                <div className="pt-2">
+                  <h3 className="text-sm font-bold text-stone-900 mb-3">গুরুত্বপূর্ণ বৈশিষ্ট্যসমূহ:</h3>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {product.features.map((feat, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-stone-700 bg-stone-50 p-2.5 rounded-xl border border-stone-200/60">
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* 8. DIRECT CASH ON DELIVERY WITH BKASH ADVANCE CHARGE ORDER FORM */}
           <section ref={formRef} id="order-form-section" className="scroll-mt-24">
@@ -863,28 +826,6 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
               {/* Form Content */}
               <form onSubmit={handleSubmitOrder} className="p-6 sm:p-10 space-y-6">
                 
-                {/* Direct Checkout Modal Option */}
-                {onOpenCheckout && (
-                  <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 rounded-2xl border-2 border-emerald-300 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left shadow-xs">
-                    <div className="text-xs sm:text-sm text-emerald-950 space-y-0.5">
-                      <span className="font-extrabold text-sm sm:text-base block text-emerald-900">
-                        ⚡ সরাসরি আমাদের ফুল চেকআউটে অর্ডার করুন
-                      </span>
-                      <span className="text-stone-600">
-                        ঢাকার ভেতরে ৳৮০ • ঢাকার বাইরে ৳১৬০ • সম্পূর্ণ নিরাপদ বিকাশ ও ক্যাশ অন ডেলিভারি
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onOpenCheckout(product, quantity, selectedVariant)}
-                      className="w-full sm:w-auto px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-extrabold rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <span>সরাসরি চেকআউট পেজে যান</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-
                 {/* Validation error display */}
                 {validationError && (
                   <div className="p-4 rounded-xl bg-red-50 border border-red-300 text-red-700 text-sm font-semibold flex items-center gap-2">
@@ -1226,36 +1167,12 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
             </div>
           </section>
 
-          {/* 9. FREQUENTLY ASKED QUESTIONS (FAQ) */}
-          <section className="bg-white rounded-3xl border border-stone-200 p-6 sm:p-10 space-y-6">
-            <div className="text-center max-w-xl mx-auto space-y-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full">
-                সাধারণ প্রশ্নোত্তর
-              </span>
-              <h2 className="text-2xl font-extrabold text-stone-900">
-                গ্রাহকদের সচরাচর করা কিছু প্রশ্ন
-              </h2>
-            </div>
-
-            <div className="divide-y divide-stone-200 max-w-3xl mx-auto">
-              {faqs.map((faq, idx) => (
-                <div key={idx} className="py-4 space-y-1.5 text-left">
-                  <h3 className="font-bold text-stone-900 text-base flex items-start gap-2">
-                    <span className="text-emerald-700 font-mono">Q.</span>
-                    <span>{faq.question}</span>
-                  </h3>
-                  <p className="text-stone-600 text-sm leading-relaxed pl-5">
-                    {faq.answer}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
+          {/* (FAQ Section removed per user preference) */}
 
         </main>
       )}
 
-      {/* 10. STICKY MOBILE BOTTOM BAR */}
+      {/* 9. STICKY MOBILE BOTTOM BAR */}
       <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-stone-200 p-3 sm:hidden z-40 shadow-2xl flex items-center justify-between gap-3">
         <div className="leading-tight">
           <span className="text-[11px] text-stone-500 block">
@@ -1276,13 +1193,7 @@ export const ProductLandingPage: React.FC<ProductLandingPageProps> = ({
           </a>
 
           <button
-            onClick={() => {
-              if (onOpenCheckout) {
-                onOpenCheckout(product, quantity, selectedVariant);
-              } else {
-                scrollToForm();
-              }
-            }}
+            onClick={scrollToForm}
             type="button"
             className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
           >

@@ -481,14 +481,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 )}
               </div>
 
-              {/* Authenticity Guarantee QR Trust Badge */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-900 text-xs font-medium">
-                <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
-                <span>
-                  ১০০% অরিজিনাল ও প্রিমিয়াম গ্রেড পণ্য (Al-Barakah Authenticity Verified)
-                </span>
-              </div>
-
               {/* Product Title */}
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-stone-900 leading-snug">
                 {product.name}
