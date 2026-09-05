@@ -21,7 +21,9 @@ import {
   Shield,
   ArrowRight
 } from 'lucide-react';
-import { Product, CartItem, Order, FilterState, Category, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG, CouponItem, SeoConfig, DEFAULT_SEO_CONFIG } from './types';
+import { Product, CartItem, Order, FilterState, Category, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG, CouponItem, SeoConfig, DEFAULT_SEO_CONFIG, OrderNotificationConfig, DEFAULT_NOTIFICATION_CONFIG } from './types';
+import { playOrderAlertSound, showBrowserOrderNotification } from './utils/audioAlert';
+import { dispatchTelegramOrderNotification } from './utils/telegramNotifier';
 import { INITIAL_PRODUCTS } from './data/products';
 import { INITIAL_CATEGORIES } from './data/categories';
 import { getSubcategoriesForCategory } from './data/subcategories';
@@ -301,6 +303,32 @@ export default function App() {
     return DEFAULT_SEO_CONFIG;
   });
 
+  // --- Order Real-Time Notifications & Sound Alert Config (Firestore Synced) ---
+  const [notificationConfig, setNotificationConfig] = useState<OrderNotificationConfig>(() => {
+    try {
+      const saved = localStorage.getItem('albarakah_notification_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            ...DEFAULT_NOTIFICATION_CONFIG,
+            ...parsed,
+            telegram: { ...DEFAULT_NOTIFICATION_CONFIG.telegram, ...(parsed.telegram || {}) },
+          };
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_NOTIFICATION_CONFIG;
+  });
+
+  const notificationConfigRef = useRef(notificationConfig);
+  useEffect(() => {
+    notificationConfigRef.current = notificationConfig;
+  }, [notificationConfig]);
+
+  const isInitialOrdersLoadRef = useRef(false);
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+
   // Initialize Facebook Pixel and Domain Verification whenever config changes
   useEffect(() => {
     initFacebookPixel(facebookPixelConfig);
@@ -515,6 +543,25 @@ export default function App() {
     if (isAdminView || isEffectiveAdmin) {
       unsubOrders = subscribeToOrders((liveOrders) => {
         if (liveOrders) {
+          if (!isInitialOrdersLoadRef.current) {
+            liveOrders.forEach((o) => knownOrderIdsRef.current.add(o.id));
+            isInitialOrdersLoadRef.current = true;
+          } else {
+            const newOrders = liveOrders.filter((o) => !knownOrderIdsRef.current.has(o.id));
+            if (newOrders.length > 0) {
+              newOrders.forEach((o) => knownOrderIdsRef.current.add(o.id));
+              const currentCfg = notificationConfigRef.current;
+              if (currentCfg.soundEnabled) {
+                playOrderAlertSound(currentCfg.soundType || 'cash');
+              }
+              if (currentCfg.browserPushEnabled) {
+                showBrowserOrderNotification(newOrders[0]);
+              }
+              const orderAmount = Number(newOrders[0].totalAmount || newOrders[0].total || 0).toLocaleString();
+              showToast(`🔔 নতুন অর্ডার এসেছে! #${newOrders[0].trackingCode || newOrders[0].id.slice(-6)} (৳${orderAmount})`);
+            }
+          }
+
           setOrders(liveOrders);
           try {
             localStorage.setItem('albarakah_backup_orders', JSON.stringify(liveOrders));
@@ -609,6 +656,19 @@ export default function App() {
         }));
         try {
           localStorage.setItem('albarakah_backup_seo_config', JSON.stringify(settings.seoConfig));
+        } catch (e) {}
+      }
+      if (settings.notificationConfig && typeof settings.notificationConfig === 'object') {
+        setNotificationConfig((prev) => ({
+          ...prev,
+          ...settings.notificationConfig,
+          telegram: {
+            ...prev.telegram,
+            ...(settings.notificationConfig?.telegram || {}),
+          },
+        }));
+        try {
+          localStorage.setItem('albarakah_notification_config', JSON.stringify(settings.notificationConfig));
         } catch (e) {}
       }
       setIsSettingsLoaded(true);
@@ -1170,6 +1230,17 @@ export default function App() {
       console.warn('Order notification trigger error:', e);
     }
 
+    // Dispatch Telegram instant mobile alert
+    try {
+      const currentNotifCfg = notificationConfigRef.current;
+      if (currentNotifCfg?.telegram?.enabled && currentNotifCfg.telegram.botToken && currentNotifCfg.telegram.chatId) {
+        dispatchTelegramOrderNotification(newOrder, currentNotifCfg.telegram)
+          .catch((err) => console.warn('Telegram notification dispatch warning:', err));
+      }
+    } catch (e) {
+      console.warn('Telegram notification error:', e);
+    }
+
     // If order was from regular cart, empty the cart. If from Quick Buy Now, reset quickBuyItem.
     if (!quickBuyItem) {
       setCart([]); // Clear regular cart
@@ -1393,6 +1464,15 @@ export default function App() {
         onPreviewLandingPage={(prod) => {
           setSelectedProduct(prod);
           setLandingProduct(null);
+        }}
+        notificationConfig={notificationConfig}
+        onUpdateNotificationConfig={async (newCfg) => {
+          setNotificationConfig(newCfg);
+          try {
+            localStorage.setItem('albarakah_notification_config', JSON.stringify(newCfg));
+          } catch (e) {}
+          await saveStoreSettingsToDb({ notificationConfig: newCfg });
+          showToast('অর্ডার নোটিফিকেশন সেটিংস সফলভাবে সেভ হয়েছে!');
         }}
       />
     );

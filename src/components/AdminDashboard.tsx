@@ -47,8 +47,8 @@ import {
   ZoomIn,
   Loader2
 } from 'lucide-react';
-import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, TopSellingItem, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, SeoConfig, DEFAULT_SEO_CONFIG } from '../types';
-import { Layers, Flame, Truck, Send, CheckCircle, User, Download, Database, HardDriveDownload, RefreshCw } from 'lucide-react';
+import { Product, Order, CategoryItem, HeroBannerConfig, HeroSlide, PromoCard, ProductReview, TopSellingSectionConfig, TopSellingItem, CourierConfig, DeliveryConfig, DEFAULT_DELIVERY_CONFIG, SeoConfig, DEFAULT_SEO_CONFIG, OrderNotificationConfig, DEFAULT_NOTIFICATION_CONFIG } from '../types';
+import { Layers, Flame, Truck, Send, CheckCircle, User, Download, Database, HardDriveDownload, RefreshCw, Bell } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { CATEGORY_SUBCATEGORIES, getSubcategoriesForCategory } from '../data/subcategories';
 import { DEFAULT_HERO_CONFIG } from './HeroBanner';
@@ -63,6 +63,7 @@ import { LandingPageAdminModal } from './LandingPageAdminModal';
 import { FacebookPixelSettingsModal } from './FacebookPixelSettingsModal';
 import { FacebookPixelConfig, DEFAULT_FACEBOOK_PIXEL_CONFIG, BKashPaymentConfig, DEFAULT_BKASH_CONFIG } from '../types';
 import { BKashSettingsModal } from './BKashSettingsModal';
+import { NotificationSettingsCard } from './NotificationSettingsCard';
 import { SeoSettingsModal } from './SeoSettingsModal';
 import { ProfitAnalyticsReports } from './ProfitAnalyticsReports';
 import { DEFAULT_COURIER_CONFIG, dispatchOrderToCourier, sendOrderToSteadfast, sendOrderToPathao } from '../services/courierService';
@@ -148,6 +149,8 @@ interface AdminDashboardProps {
   seoConfig?: SeoConfig;
   onUpdateSeoConfig?: (config: SeoConfig) => Promise<void> | void;
   onPreviewLandingPage?: (product: Product) => void;
+  notificationConfig?: OrderNotificationConfig;
+  onUpdateNotificationConfig?: (config: OrderNotificationConfig) => Promise<void> | void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -187,6 +190,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   seoConfig = DEFAULT_SEO_CONFIG,
   onUpdateSeoConfig,
   onPreviewLandingPage,
+  notificationConfig = DEFAULT_NOTIFICATION_CONFIG,
+  onUpdateNotificationConfig,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -5389,6 +5394,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Real-time Order Notification & Alerts Card */}
+                <NotificationSettingsCard
+                  notificationConfig={notificationConfig}
+                  onUpdateNotificationConfig={onUpdateNotificationConfig}
+                  showToast={showToast}
+                />
 
                 {/* Database Backup & Disaster Recovery Card */}
                 <div className="pt-4 border-t border-stone-200">

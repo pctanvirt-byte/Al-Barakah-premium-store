@@ -16,7 +16,7 @@ import {
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Product, Order, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, FacebookPixelConfig, BKashPaymentConfig, CouponItem, SeoConfig } from '../types';
+import { Product, Order, CategoryItem, HeroBannerConfig, ProductReview, TopSellingSectionConfig, CourierConfig, DeliveryConfig, FacebookPixelConfig, BKashPaymentConfig, CouponItem, SeoConfig, OrderNotificationConfig } from '../types';
 import { INITIAL_CATEGORIES } from '../data/categories';
 import { compressDataUrl } from '../utils/imageCompressor';
 
@@ -560,6 +560,7 @@ export const subscribeToStoreSettings = (
     facebookPixelConfig?: FacebookPixelConfig;
     bkashConfig?: BKashPaymentConfig;
     seoConfig?: SeoConfig;
+    notificationConfig?: OrderNotificationConfig;
   }) => void
 ) => {
   const docRef = doc(db, SETTINGS_COLLECTION, 'general');
@@ -597,6 +598,7 @@ export const saveStoreSettingsToDb = async (settings: {
   facebookPixelConfig?: FacebookPixelConfig;
   bkashConfig?: BKashPaymentConfig;
   seoConfig?: SeoConfig;
+  notificationConfig?: OrderNotificationConfig;
 }): Promise<void> => {
   try {
     await ensureFirebaseAuth();

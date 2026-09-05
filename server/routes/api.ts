@@ -1364,4 +1364,48 @@ apiRouter.post('/test-email', requireAuth, requireAdmin, async (req: AuthRequest
   }
 });
 
+// POST /api/notify-telegram - Dispatch real-time Telegram notification for orders
+apiRouter.post('/notify-telegram', async (req, res) => {
+  try {
+    const { botToken, chatId, message } = req.body;
+    const token = (botToken || process.env.TELEGRAM_BOT_TOKEN || '').trim();
+    const chat = (chatId || process.env.TELEGRAM_CHAT_ID || '').trim();
+
+    if (!token || !chat || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'botToken, chatId, and message are required',
+      });
+    }
+
+    const telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+    const response = await fetch(telegramUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat,
+        text: message,
+        parse_mode: 'HTML',
+      }),
+    });
+
+    const data = (await response.json()) as any;
+    if (data.ok) {
+      return res.json({ success: true, messageId: data.result?.message_id });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: data.description || 'Failed to deliver to Telegram',
+      });
+    }
+  } catch (error: any) {
+    console.error('Error sending Telegram notification:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Telegram server relay failed',
+    });
+  }
+});
+
+
 

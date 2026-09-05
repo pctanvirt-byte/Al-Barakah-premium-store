@@ -179,6 +179,28 @@ export const DEFAULT_DELIVERY_CONFIG: DeliveryConfig = {
   advanceDeliveryNotice: 'ফেক অর্ডার ও রিটার্ন রোধে শুধুমাত্র ডেলিভারি চার্জ অগ্রিম বিকাশ করতে হবে। বাকি পণ্যের মূল্য পার্সেল হাতে পেয়ে পরিশোধ করবেন।',
 };
 
+export interface OrderNotificationConfig {
+  soundEnabled: boolean;
+  soundType: 'cash' | 'chime' | 'bell';
+  browserPushEnabled: boolean;
+  telegram: {
+    enabled: boolean;
+    botToken: string;
+    chatId: string;
+  };
+}
+
+export const DEFAULT_NOTIFICATION_CONFIG: OrderNotificationConfig = {
+  soundEnabled: true,
+  soundType: 'cash',
+  browserPushEnabled: true,
+  telegram: {
+    enabled: false,
+    botToken: '',
+    chatId: '',
+  },
+};
+
 export interface Order {
   id: string;
   userId?: string;
