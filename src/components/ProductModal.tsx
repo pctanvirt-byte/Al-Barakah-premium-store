@@ -25,7 +25,8 @@ import {
   CheckCircle2,
   ThumbsUp,
   ArrowLeftRight,
-  ShieldCheck
+  ShieldCheck,
+  AlertCircle
 } from 'lucide-react';
 import { Product, Category, CategoryItem, ProductReview } from '../types';
 import { parseVariantOptions, getCalculatedPrice } from '../utils/pricing';
@@ -158,6 +159,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     ? getCalculatedPrice(product.originalPrice, baseVariant, currentVariant) 
     : undefined;
 
+  const isOutOfStock = !product.inStock || (product.stockCount !== undefined && product.stockCount <= 0);
+
   const discountPercentage = currentOriginalPrice && currentOriginalPrice > currentPrice
     ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100)
     : 0;
@@ -166,16 +169,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const displayRelated = getSmartRelatedProducts(product, allProducts || [], 4);
 
   const handleQuantityChange = (delta: number) => {
+    if (isOutOfStock) return;
     setQuantity((prev) => Math.max(1, prev + delta));
   };
 
   const handleAddToCartClick = () => {
+    if (isOutOfStock) return;
     onAddToCart(product, quantity, undefined, currentVariant, currentPrice);
     setAddedAnimation(true);
     setTimeout(() => setAddedAnimation(false), 2000);
   };
 
   const handleBuyNowClick = () => {
+    if (isOutOfStock) return;
     onBuyNow(product, quantity, undefined, currentVariant, currentPrice);
   };
 
@@ -418,6 +424,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <ChevronRight className="w-4 h-4 text-stone-700" />
                 </button>
 
+                {/* Stock Out Badge on Image */}
+                {isOutOfStock && (
+                  <div className="absolute top-3 left-3 z-20">
+                    <span className="px-3 py-1 bg-rose-600 text-white font-extrabold text-xs uppercase tracking-wider rounded-lg shadow-md">
+                      স্টক আউট
+                    </span>
+                  </div>
+                )}
+
                 {/* Wishlist & Compare Icons */}
                 <div className="absolute top-3 right-3 flex flex-col gap-2 z-20">
                   <button
@@ -501,6 +516,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     Save {discountPercentage}%
                   </span>
                 )}
+                {isOutOfStock ? (
+                  <span className="text-xs font-extrabold text-white bg-rose-600 px-2.5 py-1 rounded-md shadow-2xs font-sans uppercase">
+                    স্টক আউট (Stock Out)
+                  </span>
+                ) : (
+                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md font-sans">
+                    ইন স্টক {product.stockCount !== undefined ? `(${product.stockCount} টি অবশিষ্ট)` : ''}
+                  </span>
+                )}
               </div>
 
               <div className="h-px bg-stone-200 w-full" />
@@ -543,7 +567,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleQuantityChange(-1)}
-                    disabled={quantity <= 1}
+                    disabled={isOutOfStock || quantity <= 1}
                     className="w-10 h-10 bg-stone-50 hover:bg-stone-100 text-stone-700 flex items-center justify-center disabled:opacity-30 transition-colors cursor-pointer border-r border-stone-200"
                   >
                     <Minus className="w-4 h-4" />
@@ -554,7 +578,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleQuantityChange(1)}
-                    className="w-10 h-10 bg-stone-50 hover:bg-stone-100 text-stone-700 flex items-center justify-center transition-colors cursor-pointer border-l border-stone-200"
+                    disabled={isOutOfStock}
+                    className="w-10 h-10 bg-stone-50 hover:bg-stone-100 text-stone-700 flex items-center justify-center disabled:opacity-30 transition-colors cursor-pointer border-l border-stone-200"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -566,40 +591,49 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               </div>
 
               {/* 2 Primary Action Buttons: ADD TO CART & BUY NOW */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleAddToCartClick}
-                  className={`py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer ${
-                    addedAnimation
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-[#f38018] hover:bg-[#e0700c] text-white active:scale-98'
-                  }`}
-                  id="btn-add-to-cart-modal"
-                >
-                  {addedAnimation ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Added!</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingBag className="w-4 h-4" />
-                      <span>ADD TO CART</span>
-                    </>
-                  )}
-                </button>
+              {isOutOfStock ? (
+                <div className="pt-2">
+                  <div className="w-full py-3.5 px-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>দুঃখিত, এই পণ্যটি বর্তমানে স্টক আউট (Out of Stock)</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleAddToCartClick}
+                    className={`py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer ${
+                      addedAnimation
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-[#f38018] hover:bg-[#e0700c] text-white active:scale-98'
+                    }`}
+                    id="btn-add-to-cart-modal"
+                  >
+                    {addedAnimation ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Added!</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag className="w-4 h-4" />
+                        <span>ADD TO CART</span>
+                      </>
+                    )}
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleBuyNowClick}
-                  className="py-3.5 px-4 rounded-xl bg-[#0d211b] hover:bg-[#06120e] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98 cursor-pointer"
-                  id="btn-buy-now-modal"
-                >
-                  <Zap className="w-4 h-4 text-amber-400" />
-                  <span>BUY NOW</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleBuyNowClick}
+                    className="py-3.5 px-4 rounded-xl bg-[#0d211b] hover:bg-[#06120e] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98 cursor-pointer"
+                    id="btn-buy-now-modal"
+                  >
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    <span>BUY NOW</span>
+                  </button>
+                </div>
+              )}
 
               {/* Compare Button */}
               {onToggleCompare && (

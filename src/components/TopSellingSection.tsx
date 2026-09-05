@@ -148,6 +148,8 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
           const isAdded = Boolean(addedItems[item.id]);
           const isCompared = compareProducts.some((p) => p.id === resolvedProduct.id);
 
+          const isOutOfStock = !resolvedProduct.inStock || (resolvedProduct.stockCount !== undefined && resolvedProduct.stockCount <= 0);
+
           return (
             <div
               key={item.id || index}
@@ -158,8 +160,23 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
               <div>
                 {/* Banner / Product Image Container - Strictly unzoomed object-contain */}
                 <div className="w-full h-[140px] sm:h-[220px] md:h-[270px] lg:h-[320px] bg-white flex items-center justify-center p-2 sm:p-4 relative overflow-hidden">
+                  {/* Out of Stock Overlay */}
+                  {isOutOfStock && (
+                    <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none z-15">
+                      <span className="px-2.5 py-1 bg-rose-600 text-white font-extrabold text-[10px] sm:text-xs rounded-md shadow-md uppercase tracking-wider">
+                        স্টক আউট
+                      </span>
+                    </div>
+                  )}
+
                   {/* Badge */}
-                  {badgeText && (
+                  {isOutOfStock ? (
+                    <div className="absolute top-2 left-2 z-10">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] sm:text-[11px] font-black uppercase shadow-xs tracking-wide bg-rose-600 text-white">
+                        স্টক আউট
+                      </span>
+                    </div>
+                  ) : badgeText ? (
                     <div className="absolute top-2 left-2 z-10">
                       <span 
                         style={{ backgroundColor: item.badgeBgColor || '#ef4444', color: item.badgeTextColor || '#ffffff' }}
@@ -169,7 +186,7 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
                         <span>{badgeText}</span>
                       </span>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Top Right: Compare Button */}
                   {onToggleCompare && (
@@ -235,19 +252,27 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
                 <button
                   type="button"
                   onClick={(e) => handleOrder(e, resolvedProduct)}
-                  className="flex-1 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-bold py-1.5 sm:py-2 px-1.5 rounded-lg text-[11px] sm:text-xs text-center shadow-xs transition-all active:scale-[0.98]"
+                  disabled={isOutOfStock}
+                  className={`flex-1 font-bold py-1.5 sm:py-2 px-1.5 rounded-lg text-[11px] sm:text-xs text-center shadow-xs transition-all ${
+                    isOutOfStock
+                      ? 'bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white active:scale-[0.98] cursor-pointer'
+                  }`}
                 >
-                  অর্ডার করুন
+                  {isOutOfStock ? 'স্টক আউট' : 'অর্ডার করুন'}
                 </button>
                 <button
                   type="button"
                   onClick={(e) => handleAdd(e, resolvedProduct, item.id)}
+                  disabled={isOutOfStock}
                   className={`px-2.5 py-1.5 sm:py-2 rounded-lg border font-bold text-[11px] sm:text-xs flex items-center justify-center transition-all ${
-                    isAdded
-                      ? 'bg-emerald-600 border-emerald-600 text-white'
-                      : 'border-rose-200 text-rose-600 hover:bg-rose-50 bg-white'
+                    isOutOfStock
+                      ? 'bg-stone-100 border-stone-200 text-stone-300 cursor-not-allowed'
+                      : isAdded
+                      ? 'bg-emerald-600 border-emerald-600 text-white cursor-pointer'
+                      : 'border-rose-200 text-rose-600 hover:bg-rose-50 bg-white cursor-pointer'
                   }`}
-                  title="কার্ট-এ যোগ করুন"
+                  title={isOutOfStock ? 'স্টক আউট' : 'কার্ট-এ যোগ করুন'}
                 >
                   {isAdded ? <Check className="w-3.5 h-3.5 stroke-[2.5]" /> : <ShoppingCart className="w-3.5 h-3.5" />}
                 </button>

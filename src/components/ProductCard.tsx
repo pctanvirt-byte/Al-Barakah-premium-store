@@ -28,12 +28,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [addedRecently, setAddedRecently] = useState(false);
 
+  const isOutOfStock = !product.inStock || (product.stockCount !== undefined && product.stockCount <= 0);
   const currentPrice = Number(product.price || 0);
   const origPrice = Number(product.originalPrice || 0);
   const discountAmount = origPrice > currentPrice ? origPrice - currentPrice : 0;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isOutOfStock) return;
     onAddToCart(product, 1);
     setAddedRecently(true);
     setTimeout(() => setAddedRecently(false), 1500);
@@ -82,8 +84,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Subtle hover overlay */}
           <div className="absolute inset-0 bg-stone-900/[0.02] opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none rounded-lg sm:rounded-xl" />
 
+          {/* Out of Stock Overlay on Image */}
+          {isOutOfStock && (
+            <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-[0.5px] rounded-lg sm:rounded-xl flex items-center justify-center pointer-events-none z-15">
+              <span className="px-2.5 py-1 bg-rose-600 text-white font-extrabold text-[11px] sm:text-xs rounded-md shadow-md uppercase tracking-wider">
+                স্টক আউট (Out of Stock)
+              </span>
+            </div>
+          )}
+
           {/* Badge */}
-          {product.badge && (
+          {isOutOfStock ? (
+            <div className="absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-20">
+              <span className="px-2 py-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-md shadow-xs bg-rose-600 text-white">
+                স্টক আউট
+              </span>
+            </div>
+          ) : product.badge ? (
             <div className="absolute top-1 left-1 sm:top-1.5 sm:left-1.5 z-10">
               <span className={`px-2 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-md shadow-2xs ${
                 product.badge === 'SALE' 
@@ -97,7 +114,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 {product.badge}
               </span>
             </div>
-          )}
+          ) : null}
 
           {/* Top Right Action Buttons: Wishlist & Compare */}
           <div className="absolute top-1.5 right-1.5 z-10 flex flex-col gap-1.5">
@@ -208,16 +225,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <button
           type="button"
           onClick={handleAdd}
-          disabled={!product.inStock}
-          className={`w-full py-1.5 sm:py-2 px-2 rounded-lg border font-bold text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-200 shadow-2xs active:scale-[0.98] cursor-pointer ${
-            addedRecently
-              ? 'bg-emerald-600 border-emerald-600 text-white'
-              : !product.inStock
+          disabled={isOutOfStock}
+          className={`w-full py-1.5 sm:py-2 px-2 rounded-lg border font-bold text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-200 shadow-2xs ${
+            isOutOfStock
               ? 'bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed'
-              : 'border-[#f38018] text-[#f38018] hover:bg-[#f38018] hover:text-white bg-white'
+              : addedRecently
+              ? 'bg-emerald-600 border-emerald-600 text-white cursor-pointer active:scale-[0.98]'
+              : 'border-[#f38018] text-[#f38018] hover:bg-[#f38018] hover:text-white bg-white cursor-pointer active:scale-[0.98]'
           }`}
         >
-          {addedRecently ? (
+          {isOutOfStock ? (
+            <span>স্টক আউট (Stock Out)</span>
+          ) : addedRecently ? (
             <>
               <Check className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Added!</span>
@@ -225,7 +244,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           ) : (
             <>
               <ShoppingCart className="w-3.5 h-3.5 stroke-[2.2]" />
-              <span>{product.inStock ? 'Add To Cart' : 'Stock Out'}</span>
+              <span>Add To Cart</span>
             </>
           )}
         </button>

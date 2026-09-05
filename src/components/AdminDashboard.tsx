@@ -1166,12 +1166,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     showToast(`অর্ডার ${targetOrderLabel} সফলভাবে ডাটাবেজ থেকে মুছে ফেলা হয়েছে`);
   };
 
-  // Helper to change order status
+  // Helper to change order status and manage automatic stock deduction / restoration
   const handleOrderStatusChange = async (orderId: string, newStatus: Order['status']) => {
-    const updated = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o));
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    const normalizedNew = (newStatus || '').toLowerCase();
+    const shouldDeduct = normalizedNew === 'processing' || normalizedNew === 'shipped' || normalizedNew === 'delivered';
+    const isCancelOrReturn = normalizedNew === 'cancelled';
+
+    let nextProducts = [...products];
+    let productsModified = false;
+    let newStockDeducted = targetOrder.stockDeducted ?? false;
+
+    if (shouldDeduct && !targetOrder.stockDeducted) {
+      // Deduct stock for each item in the order
+      if (Array.isArray(targetOrder.items) && targetOrder.items.length > 0) {
+        targetOrder.items.forEach((item: any) => {
+          const pId = item.productId || item.id || item.product?.id;
+          const qty = Number(item.quantity) || 1;
+          const pIndex = nextProducts.findIndex(
+            (p) => (pId && p.id === pId) || (item.name && p.name === item.name) || (item.productNameSnapshot && p.name === item.productNameSnapshot)
+          );
+          if (pIndex !== -1) {
+            const currentStock = typeof nextProducts[pIndex].stockCount === 'number' ? nextProducts[pIndex].stockCount! : 10;
+            const updatedStock = Math.max(0, currentStock - qty);
+            nextProducts[pIndex] = {
+              ...nextProducts[pIndex],
+              stockCount: updatedStock,
+              inStock: updatedStock > 0,
+            };
+            productsModified = true;
+          }
+        });
+      }
+      newStockDeducted = true;
+    } else if (isCancelOrReturn && targetOrder.stockDeducted) {
+      // Restore stock for each item in the order
+      if (Array.isArray(targetOrder.items) && targetOrder.items.length > 0) {
+        targetOrder.items.forEach((item: any) => {
+          const pId = item.productId || item.id || item.product?.id;
+          const qty = Number(item.quantity) || 1;
+          const pIndex = nextProducts.findIndex(
+            (p) => (pId && p.id === pId) || (item.name && p.name === item.name) || (item.productNameSnapshot && p.name === item.productNameSnapshot)
+          );
+          if (pIndex !== -1) {
+            const currentStock = typeof nextProducts[pIndex].stockCount === 'number' ? nextProducts[pIndex].stockCount! : 0;
+            const updatedStock = currentStock + qty;
+            nextProducts[pIndex] = {
+              ...nextProducts[pIndex],
+              stockCount: updatedStock,
+              inStock: updatedStock > 0,
+            };
+            productsModified = true;
+          }
+        });
+      }
+      newStockDeducted = false;
+    }
+
+    if (productsModified) {
+      onUpdateProducts(nextProducts);
+      showToast(newStockDeducted ? '📦 অর্ডার অনুযায়ী স্টক থেকে মাইনাস করা হয়েছে!' : '🔄 ক্যানসেল হওয়ায় স্টক পুনরায় যোগ করা হয়েছে!');
+    }
+
+    const updated = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus, stockDeducted: newStockDeducted } : o));
     onUpdateOrders(updated);
     if (selectedOrderDetails?.id === orderId) {
-      setSelectedOrderDetails((prev) => (prev ? { ...prev, status: newStatus } : null));
+      setSelectedOrderDetails((prev) => (prev ? { ...prev, status: newStatus, stockDeducted: newStockDeducted } : null));
     }
 
     // If auto-send on confirm is enabled and status changed to Shipped/Processing
@@ -1179,9 +1241,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       courierConfig.autoSendOnConfirm &&
       (newStatus === 'Shipped' || newStatus === 'Processing' || newStatus === 'shipped' || newStatus === 'processing')
     ) {
-      const targetOrder = orders.find((o) => o.id === orderId);
-      if (targetOrder && !targetOrder.courierConsignmentId) {
-        handleSendOrderToCourier(targetOrder);
+      if (!targetOrder.courierConsignmentId) {
+        handleSendOrderToCourier({ ...targetOrder, status: newStatus, stockDeducted: newStockDeducted });
       }
     }
   };
@@ -1220,11 +1281,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await dispatchOrderToCourier(order, courierConfig, provider);
 
       if (res.success && res.consignmentId) {
+        // If stock not yet deducted, deduct stock now
+        let nextProds = [...products];
+        let prodsModified = false;
+        let isStockDeductedNow = order.stockDeducted ?? false;
+
+        if (!order.stockDeducted && Array.isArray(order.items) && order.items.length > 0) {
+          order.items.forEach((item: any) => {
+            const pId = item.productId || item.id || item.product?.id;
+            const qty = Number(item.quantity) || 1;
+            const pIndex = nextProds.findIndex(
+              (p) => (pId && p.id === pId) || (item.name && p.name === item.name) || (item.productNameSnapshot && p.name === item.productNameSnapshot)
+            );
+            if (pIndex !== -1) {
+              const currentStock = typeof nextProds[pIndex].stockCount === 'number' ? nextProds[pIndex].stockCount! : 10;
+              const updatedStock = Math.max(0, currentStock - qty);
+              nextProds[pIndex] = {
+                ...nextProds[pIndex],
+                stockCount: updatedStock,
+                inStock: updatedStock > 0,
+              };
+              prodsModified = true;
+            }
+          });
+          isStockDeductedNow = true;
+        }
+
+        if (prodsModified) {
+          onUpdateProducts(nextProds);
+        }
+
         const updatedOrders = orders.map((o) => {
           if (o.id === order.id) {
             return {
               ...o,
               status: 'Shipped' as Order['status'],
+              stockDeducted: isStockDeductedNow,
               courierProvider: res.provider,
               courierConsignmentId: res.consignmentId,
               courierTrackingCode: res.trackingCode,
@@ -1243,6 +1335,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ? {
                   ...prev,
                   status: 'Shipped' as Order['status'],
+                  stockDeducted: isStockDeductedNow,
                   courierProvider: res.provider,
                   courierConsignmentId: res.consignmentId,
                   courierTrackingCode: res.trackingCode,

@@ -233,6 +233,7 @@ export interface Order {
   deliveryPaymentStatus?: 'ADVANCE_PAID' | 'ADVANCE_PENDING' | 'FULL_PAID' | 'COD_PENDING' | 'VERIFIED';
   paymentDetails?: any;
   isFakeSuspected?: boolean;
+  stockDeducted?: boolean;
 }
 
 export interface FilterState {
