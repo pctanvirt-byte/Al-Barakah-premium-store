@@ -70,7 +70,6 @@ import { CompareModal } from './components/CompareModal';
 import { CompareFloatingBar } from './components/CompareFloatingBar';
 import { AdminDashboard, StaffMember } from './components/AdminDashboard';
 import { AdminAuthGuard, SUPER_ADMIN_EMAILS } from './components/AdminAuthGuard';
-import { ProductLandingPage } from './components/ProductLandingPage';
 import { useAuth } from './contexts/AuthContext';
 
 const INITIAL_STAFF_LIST: StaffMember[] = [
@@ -908,7 +907,7 @@ export default function App() {
       const landingTarget = urlParams.get('landing') || urlParams.get('ad') || urlParams.get('fb');
       const hash = window.location.hash;
 
-      // Facebook Ad / Landing Page Route Check
+      // Facebook Ad / Landing Page Route Check (Routes directly to the identical Product Page)
       if (landingTarget) {
         const found = products.find(
           (p) =>
@@ -917,14 +916,16 @@ export default function App() {
             p.name.toLowerCase().includes(landingTarget.toLowerCase())
         );
         if (found) {
-          setLandingProduct(found);
+          setSelectedProduct(found);
+          setLandingProduct(null);
           return;
         }
       } else if (hash && hash.startsWith('#landing-')) {
         const pId = hash.replace('#landing-', '');
         const found = products.find((p) => p.id === pId || p.slug === pId);
         if (found) {
-          setLandingProduct(found);
+          setSelectedProduct(found);
+          setLandingProduct(null);
           return;
         }
       }
@@ -1390,7 +1391,8 @@ export default function App() {
           showToast('গ্লোবাল এসইও ও সোশ্যাল শেয়ার সেটিংস সফলভাবে সেভ হয়েছে!');
         }}
         onPreviewLandingPage={(prod) => {
-          setLandingProduct(prod);
+          setSelectedProduct(prod);
+          setLandingProduct(null);
         }}
       />
     );
@@ -2322,9 +2324,9 @@ export default function App() {
         />
       )}
 
-      {/* 🚀 High-Converting Facebook Ad Sales Landing Page */}
+      {/* 🚀 Identical Main Product Page for Landing / Facebook Ad visits */}
       {landingProduct && (
-        <ProductLandingPage
+        <ProductModal
           product={landingProduct}
           onClose={() => {
             setLandingProduct(null);
@@ -2337,52 +2339,51 @@ export default function App() {
               window.history.pushState(null, '', window.location.pathname + newSearch);
             }
           }}
-          onPlaceOrder={async (orderData) => {
-            const newOrder: Order = {
-              id: orderData.id || `ALB-${Date.now().toString().slice(-6)}`,
-              createdAt: new Date().toISOString(),
-              orderStatus: 'PENDING',
-              paymentStatus: 'UNPAID',
-              currency: 'BDT',
-              ...orderData,
-            } as Order;
-            await saveOrderToDb(newOrder);
-
-            // Dispatch Gmail notification
-            try {
-              fetch('/api/notify-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newOrder),
-              }).catch((err) => console.warn('Order notification dispatch warning:', err));
-            } catch (e) {
-              console.warn('Order notification trigger error:', e);
-            }
-
-            setCart([]);
-            // Track Facebook Pixel Purchase event for Landing Page orders
-            trackFbPurchase(newOrder);
-            showToast(`✅ অর্ডার #${newOrder.id} সফলভাবে সম্পন্ন হয়েছে! শীঘ্রই কনফার্মেশন কল করা হবে।`);
-            return newOrder;
-          }}
-          deliveryConfig={deliveryConfig}
-          bkashConfig={bkashConfig}
-          onOpenCheckout={(prod, qty, variant) => {
+          currency={currency}
+          isWishlisted={wishlist.some((p) => p.id === landingProduct.id)}
+          onToggleWishlist={handleToggleWishlist}
+          isCompared={compareProducts.some((p) => p.id === landingProduct.id)}
+          onToggleCompare={handleToggleCompare}
+          onAddToCart={handleAddToCart}
+          onBuyNow={handleBuyNow}
+          allProducts={products}
+          onSelectProduct={(p) => setLandingProduct(p)}
+          onOpenPolicy={() => setIsPolicyOpen(true)}
+          cartCount={totalCartCount}
+          wishlistCount={wishlist.length}
+          compareCount={compareProducts.length}
+          onOpenCart={() => {
             setLandingProduct(null);
-            handleBuyNow(prod, qty, undefined, variant?.size || variant?.label, variant?.price);
+            setActivePageView('CART');
           }}
-          onOpenStore={() => {
+          onOpenWishlist={() => {
             setLandingProduct(null);
-            setActivePageView('CATALOG');
-            const params = new URLSearchParams(window.location.search);
-            if (params.has('landing') || params.has('ad') || params.has('fb')) {
-              params.delete('landing');
-              params.delete('ad');
-              params.delete('fb');
-              const newSearch = params.toString() ? `?${params.toString()}` : '';
-              window.history.pushState(null, '', window.location.pathname + newSearch);
-            }
+            setActivePageView('WISHLIST');
           }}
+          onOpenCompare={() => {
+            setLandingProduct(null);
+            setIsCompareModalOpen(true);
+          }}
+          onOpenOrders={() => {
+            setLandingProduct(null);
+            setActivePageView('TRACK');
+          }}
+          onOpenAdmin={() => {
+            setLandingProduct(null);
+            setIsAdminView(true);
+          }}
+          onOpenCustomerDashboard={() => {
+            setLandingProduct(null);
+            setIsCustomerDashboardOpen(true);
+          }}
+          onOpenAuth={(tab) => {
+            setLandingProduct(null);
+            setActivePageView(tab === 'TRACK' ? 'TRACK' : 'LOGIN');
+          }}
+          categories={categories}
+          enableCustomerReviews={enableCustomerReviews}
+          reviews={reviews}
+          onAddReview={handleAddReview}
         />
       )}
     </div>
