@@ -1139,6 +1139,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Immediately close modal and update state to prevent UI freezing
     setProductToDelete(null);
     const updated = products.filter((p) => p.id !== targetId);
+
+    // Track deleted product ID immediately to prevent any zombie flicker on refresh
+    try {
+      const delRaw = localStorage.getItem('albarakah_deleted_product_ids');
+      const delSet = new Set<string>(delRaw ? JSON.parse(delRaw) : []);
+      delSet.add(targetId);
+      localStorage.setItem('albarakah_deleted_product_ids', JSON.stringify(Array.from(delSet)));
+
+      localStorage.setItem('albarakah_backup_products', JSON.stringify(updated));
+    } catch (e) {}
+
     onUpdateProducts(updated);
     showToast(`"${deletedName}" ফায়ারবেস ডাটাবেজ থেকে স্থায়ীভাবে ডিলিট করা হয়েছে!`);
 

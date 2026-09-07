@@ -29,7 +29,14 @@ export const TopSellingSection: React.FC<TopSellingSectionProps> = ({
 
   // Resolve items from config.items
   const rawItems = config.items || [];
-  const itemsToRender: TopSellingItem[] = rawItems.filter((i) => i.enabled !== false);
+  const itemsToRender: TopSellingItem[] = rawItems.filter((i) => {
+    if (i.enabled === false) return false;
+    // If item is linked to a productId and store products are loaded, do not render if deleted
+    if (i.productId && products.length > 0) {
+      return products.some((p) => p.id === i.productId);
+    }
+    return true;
+  });
   
   if (itemsToRender.length === 0) {
     return null;

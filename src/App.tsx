@@ -158,13 +158,19 @@ export default function App() {
 
   const [products, setProducts] = useState<Product[]>(() => {
     try {
+      const deletedRaw = localStorage.getItem('albarakah_deleted_product_ids');
+      const deletedIds = new Set<string>(deletedRaw ? JSON.parse(deletedRaw) : []);
+
       const saved = localStorage.getItem('albarakah_backup_products');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleanList = parsed.filter((p: Product) => p && p.id && !deletedIds.has(p.id));
+          if (cleanList.length > 0) return cleanList;
+        }
       }
     } catch (e) {}
-    return INITIAL_PRODUCTS;
+    return [];
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -391,33 +397,38 @@ export default function App() {
   const [isProductsLoaded, setIsProductsLoaded] = useState(false);
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
-  // Check if we have cached data to render instantly
+  // Check if we have cached valid products to render instantly in 0.05s
   const hasLocalCache = useMemo(() => {
     try {
-      return Boolean(
-        localStorage.getItem('albarakah_backup_products') || 
-        localStorage.getItem('albarakah_backup_hero_config') ||
-        localStorage.getItem('albarakah_backup_categories')
-      );
+      const saved = localStorage.getItem('albarakah_backup_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const deletedRaw = localStorage.getItem('albarakah_deleted_product_ids');
+          const deletedIds = new Set<string>(deletedRaw ? JSON.parse(deletedRaw) : []);
+          return parsed.some((p: Product) => p && p.id && !deletedIds.has(p.id));
+        }
+      }
+      return false;
     } catch {
       return false;
     }
   }, []);
 
   const isInitialMountLoading = useMemo(() => {
-    // If no local cache exists, wait for live Firestore data to prevent flashing default demo graphics
+    // If local cache with valid products exists, render immediately with ZERO delay
     if (!hasLocalCache) {
-      return !isProductsLoaded || !isSettingsLoaded;
+      return !isProductsLoaded;
     }
     return false;
-  }, [hasLocalCache, isProductsLoaded, isSettingsLoaded]);
+  }, [hasLocalCache, isProductsLoaded]);
 
-  // Fail-safe unlock after 2.5 seconds in case of network issues
+  // Fail-safe unlock after 1.5 seconds in case of slow network connection
   const [forceUnlock, setForceUnlock] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => {
       setForceUnlock(true);
-    }, 2500);
+    }, 1500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -520,9 +531,12 @@ export default function App() {
     // 1. Subscribe to Live Products (Cached mirror prevents flash)
     const unsubProducts = subscribeToProducts((liveProducts) => {
       if (Array.isArray(liveProducts)) {
-        setProducts(liveProducts);
+        const deletedRaw = localStorage.getItem('albarakah_deleted_product_ids');
+        const deletedIds = new Set<string>(deletedRaw ? JSON.parse(deletedRaw) : []);
+        const filteredProds = liveProducts.filter((p) => !deletedIds.has(p.id));
+        setProducts(filteredProds);
         try {
-          localStorage.setItem('albarakah_backup_products', JSON.stringify(liveProducts));
+          localStorage.setItem('albarakah_backup_products', JSON.stringify(filteredProds));
         } catch (e) {}
       }
       setIsProductsLoaded(true);
@@ -1360,6 +1374,12 @@ export default function App() {
           setProducts(updatedProducts);
           try {
             localStorage.setItem('albarakah_backup_products', JSON.stringify(updatedProducts));
+            if (deletedProds.length > 0) {
+              const delRaw = localStorage.getItem('albarakah_deleted_product_ids');
+              const delSet = new Set<string>(delRaw ? JSON.parse(delRaw) : []);
+              deletedProds.forEach((dp) => delSet.add(dp.id));
+              localStorage.setItem('albarakah_deleted_product_ids', JSON.stringify(Array.from(delSet)));
+            }
           } catch (e) {}
 
           // Perform Firestore operations in background / parallel

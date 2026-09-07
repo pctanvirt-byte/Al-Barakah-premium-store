@@ -173,19 +173,33 @@ export const subscribeToProducts = (callback: (products: Product[]) => void, max
       snapshot.forEach((docSnap) => {
         items.push({ ...(docSnap.data() as Product), id: docSnap.id });
       });
-      if (items.length > 0) {
+
+      // Filter out any known deleted products to prevent temporary flicker
+      let finalItems = items;
+      try {
+        const delRaw = localStorage.getItem('albarakah_deleted_product_ids');
+        if (delRaw) {
+          const delSet = new Set<string>(JSON.parse(delRaw));
+          finalItems = items.filter((p) => !delSet.has(p.id));
+        }
+      } catch (e) {}
+
+      if (finalItems.length > 0) {
         try {
-          localStorage.setItem('albarakah_backup_products', JSON.stringify(items));
+          localStorage.setItem('albarakah_backup_products', JSON.stringify(finalItems));
         } catch (e) {}
       }
-      callback(items);
+      callback(finalItems);
     },
     (err) => {
       console.warn('Products Firestore snapshot warning:', err);
       try {
         const cached = localStorage.getItem('albarakah_backup_products');
         if (cached) {
-          callback(JSON.parse(cached));
+          const list: Product[] = JSON.parse(cached);
+          const delRaw = localStorage.getItem('albarakah_deleted_product_ids');
+          const delSet = new Set<string>(delRaw ? JSON.parse(delRaw) : []);
+          callback(list.filter((p) => !delSet.has(p.id)));
         }
       } catch (e) {}
     }
@@ -199,6 +213,18 @@ export const saveProductToDb = async (product: Product): Promise<void> => {
     const cleaned = removeUndefinedFields(sanitized);
     const docRef = doc(db, PRODUCTS_COLLECTION, cleaned.id);
     await setDoc(docRef, cleaned, { merge: true });
+
+    // If previously marked as deleted, remove from deleted IDs set
+    try {
+      const delRaw = localStorage.getItem('albarakah_deleted_product_ids');
+      if (delRaw) {
+        const delSet = new Set<string>(JSON.parse(delRaw));
+        if (delSet.has(cleaned.id)) {
+          delSet.delete(cleaned.id);
+          localStorage.setItem('albarakah_deleted_product_ids', JSON.stringify(Array.from(delSet)));
+        }
+      }
+    } catch (e) {}
 
     // Update local mirror
     try {
@@ -223,8 +249,13 @@ export const deleteProductFromDb = async (productId: string): Promise<void> => {
     const docRef = doc(db, PRODUCTS_COLLECTION, productId);
     await deleteDoc(docRef);
 
-    // Update local mirror
+    // Record deleted ID in local tracking set to permanently block zombie appearances
     try {
+      const delRaw = localStorage.getItem('albarakah_deleted_product_ids');
+      const delSet = new Set<string>(delRaw ? JSON.parse(delRaw) : []);
+      delSet.add(productId);
+      localStorage.setItem('albarakah_deleted_product_ids', JSON.stringify(Array.from(delSet)));
+
       const cached = localStorage.getItem('albarakah_backup_products');
       if (cached) {
         const list: Product[] = JSON.parse(cached);
