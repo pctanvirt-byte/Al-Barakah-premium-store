@@ -951,11 +951,13 @@ apiRouter.post('/admin/send-otp', async (req, res) => {
       expiresAt,
     });
 
-    // Send email to Gmail
-    await sendAdminOtpEmail({
+    // Send email to Gmail in background
+    sendAdminOtpEmail({
       toEmail: cleanEmail,
       otpCode,
       adminName: 'Super Admin',
+    }).catch((mailErr: any) => {
+      console.warn('Mail dispatch issue (OTP still saved in memory):', mailErr?.message || mailErr);
     });
 
     // SECURITY: We do NOT send the OTP code in the response!
@@ -1078,20 +1080,18 @@ apiRouter.post('/admin/request-master-key-otp', async (req, res) => {
       expiresAt,
     });
 
-    // Send email to Gmail
-    try {
-      await sendAdminOtpEmail({
-        toEmail: cleanEmail,
-        otpCode,
-        adminName: 'Super Admin Tanvir (Owner)',
-      });
-    } catch (mailErr: any) {
+    // Send email to Gmail in background (non-blocking) so browser receives instant response within 20ms
+    sendAdminOtpEmail({
+      toEmail: cleanEmail,
+      otpCode,
+      adminName: 'Super Admin Tanvir (Owner)',
+    }).catch((mailErr: any) => {
       console.warn('Mail dispatch issue (OTP still saved in memory):', mailErr?.message || mailErr);
-    }
+    });
 
     res.json({
       success: true,
-      message: `মাস্টার কি পরিবর্তনের জন্য ৬-ডিজিটের ওটিপি ভেরিফিকেশন কোড ${cleanEmail} এ পাঠানো হয়েছে।`,
+      message: `মাস্টার কি পরিবর্তনের জন্য ৬-ডিজিটের ওটিপি ভেরিফিকেশন কোড ${cleanEmail} এ পাঠানো হয়েছে। আপনার ইনবক্স অথবা স্প্যাম ফোল্ডার চেক করুন।`,
     });
   } catch (error) {
     console.error('Failed to send Master Key Change OTP:', error);
