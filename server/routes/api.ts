@@ -1046,6 +1046,109 @@ apiRouter.post('/admin/verify-otp', async (req, res) => {
   }
 });
 
+// POST /api/admin/request-master-key-otp - Request OTP specifically for changing Master Key
+apiRouter.post('/admin/request-master-key-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    
+    // Strict requirement: Only pctanvirt@gmail.com can request Master Key change
+    if (cleanEmail !== 'pctanvirt@gmail.com') {
+      return res.status(403).json({
+        error: 'অননুমোদিত অনুরোধ! শুধুমাত্র প্রাইমারি সুপার অ্যাডমিন (pctanvirt@gmail.com) মাস্টার কি পরিবর্তনের অধিকার রাখেন।',
+      });
+    }
+
+    // Rate Limiting: 30 seconds
+    const lastRequest = otpRateLimiter.get(`change-mk-${cleanEmail}`) || 0;
+    const now = Date.now();
+    if (now - lastRequest < 30 * 1000) {
+      const waitSeconds = Math.ceil((30 * 1000 - (now - lastRequest)) / 1000);
+      return res.status(429).json({ error: `দয়া করে ${waitSeconds} সেকেন্ড অপেক্ষা করুন।` });
+    }
+    otpRateLimiter.set(`change-mk-${cleanEmail}`, now);
+
+    // Generate 6-digit OTP code valid for 5 minutes
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+
+    activeOtps.set(`change-mk-${cleanEmail}`, {
+      email: cleanEmail,
+      code: otpCode,
+      expiresAt,
+    });
+
+    // Send email to Gmail
+    await sendAdminOtpEmail({
+      toEmail: cleanEmail,
+      otpCode,
+      adminName: 'Super Admin Tanvir (Owner)',
+    });
+
+    res.json({
+      success: true,
+      message: `মাস্টার কি পরিবর্তনের জন্য ৬-ডিজিটের ওটিপি ভেরিফিকেশন কোড ${cleanEmail} এ পাঠানো হয়েছে।`,
+    });
+  } catch (error) {
+    console.error('Failed to send Master Key Change OTP:', error);
+    res.status(500).json({ error: 'ওটিপি পাঠাতে সমস্যা হয়েছে।' });
+  }
+});
+
+// POST /api/admin/change-master-key - Verify OTP & update Master Key
+apiRouter.post('/admin/change-master-key', async (req, res) => {
+  try {
+    const { email, otpCode, newMasterKey, currentMasterKey } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanOtp = (otpCode || '').trim();
+    const cleanNewKey = (newMasterKey || '').trim();
+    const cleanCurrentKey = (currentMasterKey || '').trim();
+
+    if (cleanEmail !== 'pctanvirt@gmail.com') {
+      return res.status(403).json({
+        error: 'অননুমোদিত অনুরোধ! শুধুমাত্র pctanvirt@gmail.com মাস্টার কি পরিবর্তন করতে পারবেন।',
+      });
+    }
+
+    if (!cleanNewKey || cleanNewKey.length < 8) {
+      return res.status(400).json({
+        error: 'নতুন মাস্টার কি ন্যূনতম ৮ অক্ষরের শক্তিশালী পাসকোড হতে হবে।',
+      });
+    }
+
+    // Verify current master key first
+    const activeServerKey = process.env.ADMIN_MASTER_OTP || 'ABPDelwar12#32R';
+    if (cleanCurrentKey !== activeServerKey) {
+      return res.status(400).json({
+        error: 'পূর্বের বর্তমান মাস্টার কি সঠিক নয়!',
+      });
+    }
+
+    // Verify OTP
+    const otpKey = `change-mk-${cleanEmail}`;
+    const storedOtp = activeOtps.get(otpKey);
+    if (!storedOtp || storedOtp.code !== cleanOtp || Date.now() > storedOtp.expiresAt) {
+      return res.status(400).json({
+        error: 'অবৈধ অথবা মেয়াদোত্তীর্ণ ওটিপি কোড। দয়া করে নতুন ওটিপি কোড নিয়ে চেষ্টা করুন।',
+      });
+    }
+
+    // Update active runtime master key
+    process.env.ADMIN_MASTER_OTP = cleanNewKey;
+    activeOtps.delete(otpKey);
+
+    console.log(`[SECURITY AUDIT] Master Key successfully updated by ${cleanEmail} at ${new Date().toISOString()}`);
+
+    res.json({
+      success: true,
+      message: 'মাস্টার কি সফলভাবে পরিবর্তন ও হালনাগাদ করা হয়েছে!',
+    });
+  } catch (error) {
+    console.error('Failed to change master key:', error);
+    res.status(500).json({ error: 'মাস্টার কি পরিবর্তন ব্যর্থ হয়েছে।' });
+  }
+});
+
 // ==========================================
 // 7. COURIER INTEGRATION PROXY (Steadfast & Pathao)
 // ==========================================
