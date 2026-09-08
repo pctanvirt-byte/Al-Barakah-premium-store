@@ -1079,11 +1079,15 @@ apiRouter.post('/admin/request-master-key-otp', async (req, res) => {
     });
 
     // Send email to Gmail
-    await sendAdminOtpEmail({
-      toEmail: cleanEmail,
-      otpCode,
-      adminName: 'Super Admin Tanvir (Owner)',
-    });
+    try {
+      await sendAdminOtpEmail({
+        toEmail: cleanEmail,
+        otpCode,
+        adminName: 'Super Admin Tanvir (Owner)',
+      });
+    } catch (mailErr: any) {
+      console.warn('Mail dispatch issue (OTP still saved in memory):', mailErr?.message || mailErr);
+    }
 
     res.json({
       success: true,

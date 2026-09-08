@@ -267,7 +267,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: 'pctanvirt@gmail.com' }),
       });
-      const data = await response.json();
+      const rawText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = { error: 'সার্ভারের সাথে সংযোগ স্থাপন করা সম্ভব হয়নি। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।' };
+      }
       if (!response.ok) {
         throw new Error(data.error || 'ওটিপি পাঠাতে ব্যর্থ হয়েছে।');
       }
@@ -314,7 +320,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           otpCode: masterKeyOtpInput.trim(),
         }),
       });
-      const data = await response.json();
+      const rawText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = { error: 'সার্ভারের সাথে সংযোগ স্থাপন করা সম্ভব হয়নি।' };
+      }
       if (!response.ok) {
         throw new Error(data.error || 'মাস্টার কি পরিবর্তন ব্যর্থ হয়েছে।');
       }
@@ -7395,17 +7407,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Modal: Super Admin Master Key Change with Gmail OTP Verification */}
       {isMasterKeyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg bg-stone-900 border border-[#D4AF37]/50 rounded-3xl p-6 sm:p-7 shadow-2xl text-stone-100 space-y-5">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-stone-900 border border-[#D4AF37]/50 rounded-3xl shadow-2xl text-stone-100 overflow-hidden">
+            {/* Pinned Header */}
+            <div className="shrink-0 flex items-center justify-between p-4 sm:p-5 border-b border-stone-800 bg-stone-900 z-10">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center">
                   <KeyRound className="w-5 h-5 text-[#D4AF37]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white font-serif">মাস্টার সিকিউরিটি কি পরিবর্তন</h3>
-                  <p className="text-[11px] text-stone-400">Super Admin (pctanvirt@gmail.com) Email OTP Verified</p>
+                  <h3 className="text-sm sm:text-base font-bold text-white font-serif">মাস্টার সিকিউরিটি কি পরিবর্তন</h3>
+                  <p className="text-[10px] sm:text-[11px] text-stone-400">Super Admin (pctanvirt@gmail.com) OTP Verified</p>
                 </div>
               </div>
               <button
@@ -7421,122 +7433,127 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
-            {/* Error Message Alert */}
-            {mkError && (
-              <div className="p-3 bg-rose-950/60 border border-rose-800/80 rounded-xl text-rose-200 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>{mkError}</span>
-              </div>
-            )}
+            {/* Scrollable Content Form */}
+            <form onSubmit={handleSubmitMasterKeyChange} className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                {/* Error Message Alert */}
+                {mkError && (
+                  <div className="p-3 bg-rose-950/60 border border-rose-800/80 rounded-xl text-rose-200 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{mkError}</span>
+                  </div>
+                )}
 
-            {/* OTP Sent Notice */}
-            {mkOtpSentMessage && (
-              <div className="p-3 bg-emerald-950/60 border border-emerald-800/80 rounded-xl text-emerald-200 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>{mkOtpSentMessage}</span>
-              </div>
-            )}
+                {/* OTP Sent Notice */}
+                {mkOtpSentMessage && (
+                  <div className="p-3 bg-emerald-950/60 border border-emerald-800/80 rounded-xl text-emerald-200 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{mkOtpSentMessage}</span>
+                  </div>
+                )}
 
-            {/* Step 1: Request OTP Section */}
-            <div className="p-4 rounded-2xl bg-stone-950/60 border border-stone-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-stone-200 block">ধাপ ১: ইমেইল ভেরিফিকেশন কোড</span>
-                  <span className="text-[11px] text-stone-400">কোড যাবে: <strong className="text-[#D4AF37]">pctanvirt@gmail.com</strong></span>
+                {/* Step 1: Request OTP Section */}
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-stone-950/60 border border-stone-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-bold text-stone-200 block">ধাপ ১: ইমেইল ভেরিফিকেশন কোড</span>
+                      <span className="text-[11px] text-stone-400">কোড যাবে: <strong className="text-[#D4AF37]">pctanvirt@gmail.com</strong></span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRequestMasterKeyOtp}
+                      disabled={isRequestingMkOtp}
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                    >
+                      {isRequestingMkOtp ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>পাঠানো হচ্ছে...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>{mkOtpSentMessage ? 'পুনরায় OTP পাঠান' : 'OTP কোড পাঠান'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-stone-300 block mb-1">ইমেইল থেকে পাওয়া ৬-ডিজিটের OTP কোড লিখুন:</label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={masterKeyOtpInput}
+                      onChange={(e) => setMasterKeyOtpInput(e.target.value.replace(/\D/g, ''))}
+                      placeholder="e.g. 849201"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-stone-900 border border-stone-700 text-center font-mono text-base tracking-widest text-[#D4AF37] font-black focus:outline-hidden focus:border-[#D4AF37]"
+                    />
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleRequestMasterKeyOtp}
-                  disabled={isRequestingMkOtp}
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                >
-                  {isRequestingMkOtp ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>পাঠানো হচ্ছে...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>{mkOtpSentMessage ? 'পুনরায় OTP পাঠান' : 'OTP কোড পাঠান'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
 
-              <div>
-                <label className="text-xs font-bold text-stone-300 block mb-1">ইমেইল থেকে পাওয়া ৬-ডিজিটের OTP কোড লিখুন:</label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={masterKeyOtpInput}
-                  onChange={(e) => setMasterKeyOtpInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder="e.g. 849201"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-900 border border-stone-700 text-center font-mono text-base tracking-widest text-[#D4AF37] font-black focus:outline-hidden focus:border-[#D4AF37]"
-                />
-              </div>
-            </div>
+                {/* Step 2: Keys Input Form */}
+                <div className="space-y-3">
+                  <div className="text-xs font-bold text-stone-200">ধাপ ২: বর্তমান ও নতুন পাসকোড প্রদান করুন</div>
 
-            {/* Step 2: Keys Input Form */}
-            <form onSubmit={handleSubmitMasterKeyChange} className="space-y-3.5">
-              <div className="text-xs font-bold text-stone-200">ধাপ ২: বর্তমান ও নতুন পাসকোড প্রদান করুন</div>
+                  {/* Current Master Key */}
+                  <div>
+                    <label className="text-xs font-medium text-stone-300 block mb-1">বর্তমান মাস্টার কি (Current Master Key):</label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentKey ? 'text' : 'password'}
+                        value={currentMasterKeyInput}
+                        onChange={(e) => setCurrentMasterKeyInput(e.target.value)}
+                        placeholder="বর্তমান মাস্টার কি লিখুন"
+                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-stone-950 border border-stone-700 text-xs text-white focus:outline-hidden focus:border-[#D4AF37]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentKey(!showCurrentKey)}
+                        className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-200"
+                      >
+                        {showCurrentKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
 
-              {/* Current Master Key */}
-              <div>
-                <label className="text-xs font-medium text-stone-300 block mb-1">বর্তমান মাস্টার কি (Current Master Key):</label>
-                <div className="relative">
-                  <input
-                    type={showCurrentKey ? 'text' : 'password'}
-                    value={currentMasterKeyInput}
-                    onChange={(e) => setCurrentMasterKeyInput(e.target.value)}
-                    placeholder="বর্তমান মাস্টার কি লিখুন"
-                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-stone-950 border border-stone-700 text-xs text-white focus:outline-hidden focus:border-[#D4AF37]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentKey(!showCurrentKey)}
-                    className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-200"
-                  >
-                    {showCurrentKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  {/* New Master Key */}
+                  <div>
+                    <label className="text-xs font-medium text-stone-300 block mb-1">নতুন মাস্টার কি (New Master Key - min 8 chars):</label>
+                    <div className="relative">
+                      <input
+                        type={showNewKey ? 'text' : 'password'}
+                        value={newMasterKeyInput}
+                        onChange={(e) => setNewMasterKeyInput(e.target.value)}
+                        placeholder="নতুন শক্তিশালী মাস্টার পাসকোড লিখুন"
+                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-stone-950 border border-stone-700 text-xs text-white focus:outline-hidden focus:border-[#D4AF37]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewKey(!showNewKey)}
+                        className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-200"
+                      >
+                        {showNewKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm New Master Key */}
+                  <div>
+                    <label className="text-xs font-medium text-stone-300 block mb-1">নতুন মাস্টার কি নিশ্চিত করুন (Confirm New Key):</label>
+                    <input
+                      type="password"
+                      value={confirmMasterKeyInput}
+                      onChange={(e) => setConfirmMasterKeyInput(e.target.value)}
+                      placeholder="পুনরায় নতুন মাস্টার কি লিখুন"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-xs text-white focus:outline-hidden focus:border-[#D4AF37]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* New Master Key */}
-              <div>
-                <label className="text-xs font-medium text-stone-300 block mb-1">নতুন মাস্টার কি (New Master Key - min 8 chars):</label>
-                <div className="relative">
-                  <input
-                    type={showNewKey ? 'text' : 'password'}
-                    value={newMasterKeyInput}
-                    onChange={(e) => setNewMasterKeyInput(e.target.value)}
-                    placeholder="নতুন শক্তিশালী মাস্টার পাসকোড লিখুন"
-                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-stone-950 border border-stone-700 text-xs text-white focus:outline-hidden focus:border-[#D4AF37]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewKey(!showNewKey)}
-                    className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-200"
-                  >
-                    {showNewKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm New Master Key */}
-              <div>
-                <label className="text-xs font-medium text-stone-300 block mb-1">নতুন মাস্টার কি নিশ্চিত করুন (Confirm New Key):</label>
-                <input
-                  type="password"
-                  value={confirmMasterKeyInput}
-                  onChange={(e) => setConfirmMasterKeyInput(e.target.value)}
-                  placeholder="পুনরায় নতুন মাস্টার কি লিখুন"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-xs text-white focus:outline-hidden focus:border-[#D4AF37]"
-                />
-              </div>
-
-              {/* Submit & Cancel Footer */}
-              <div className="pt-3 flex items-center justify-end gap-3 border-t border-stone-800">
+              {/* Pinned & Always Visible Submit & Cancel Footer */}
+              <div className="shrink-0 p-3 sm:p-4 bg-stone-950/95 border-t border-stone-800 flex items-center justify-end gap-3 z-10">
                 <button
                   type="button"
                   onClick={() => setIsMasterKeyModalOpen(false)}
