@@ -178,15 +178,15 @@ export const ImageCropZoomModal: React.FC<ImageCropZoomModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-stone-200 overflow-hidden flex flex-col"
+        className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[94vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/70 shrink-0">
+        <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between bg-stone-50/70 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#0a5c36] flex items-center justify-center">
               <Crop className="w-4 h-4" />
@@ -209,10 +209,10 @@ export const ImageCropZoomModal: React.FC<ImageCropZoomModalProps> = ({
           </button>
         </div>
 
-        {/* Body / Viewport */}
-        <div className="p-4 sm:p-5 flex flex-col items-center gap-4 select-none">
+        {/* Body / Viewport - Scrollable if screen height is small */}
+        <div className="p-3 sm:p-4 flex flex-col items-center gap-3 select-none overflow-y-auto flex-1">
           {/* Cropping Viewport Container */}
-          <div className="relative w-full max-w-[320px] aspect-square bg-stone-900 rounded-2xl overflow-hidden border-2 border-dashed border-emerald-500 shadow-inner flex items-center justify-center">
+          <div className="relative w-full max-w-[260px] sm:max-w-[300px] aspect-square bg-stone-900 rounded-2xl overflow-hidden border-2 border-dashed border-emerald-500 shadow-inner flex items-center justify-center">
             {/* Guide Grid overlay */}
             <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 z-10 opacity-30 border border-white/20">
               <div className="border-r border-b border-white/40" />
@@ -359,24 +359,42 @@ export const ImageCropZoomModal: React.FC<ImageCropZoomModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-3.5 border-t border-stone-100 bg-stone-50/80 flex items-center justify-end gap-2.5 shrink-0">
+        {/* Footer - Always Sticky and Guaranteed Visible */}
+        <div className="px-4 sm:px-5 py-3 border-t border-stone-200 bg-stone-50/95 backdrop-blur-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 text-xs font-bold cursor-pointer transition-colors"
+            onClick={() => {
+              // Directly use original without crop if user wants original
+              if (imageSrc) {
+                onApply(imageSrc);
+                onClose();
+              }
+            }}
+            className="px-3.5 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-semibold cursor-pointer transition-colors"
+            title="কোনো ক্রপ না করেই আসল ছবিটি সরাসরি ব্যবহার করুন"
           >
-            বাতিল
+            আসল ছবি রাখুন (Original)
           </button>
 
-          <button
-            type="button"
-            onClick={handleExportCropped}
-            className="px-5 py-2 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] text-white text-xs font-bold shadow-md cursor-pointer transition-all flex items-center gap-1.5"
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>প্রয়োগ করুন (Apply & Crop)</span>
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-2 rounded-xl bg-white border border-stone-200 hover:bg-stone-100 text-stone-600 text-xs font-semibold cursor-pointer transition-colors"
+            >
+              বাতিল
+            </button>
+
+            <button
+              id="btn-confirm-crop-image"
+              type="button"
+              onClick={handleExportCropped}
+              className="px-5 py-2 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] active:scale-95 text-white text-xs sm:text-sm font-bold shadow-md cursor-pointer transition-all flex items-center gap-1.5"
+            >
+              <Check className="w-4 h-4 text-emerald-300" />
+              <span>ছবি সেভ ও নিশ্চিত করুন (Save Photo)</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

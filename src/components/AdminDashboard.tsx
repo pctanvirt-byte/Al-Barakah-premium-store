@@ -151,6 +151,7 @@ interface AdminDashboardProps {
   onPreviewLandingPage?: (product: Product) => void;
   notificationConfig?: OrderNotificationConfig;
   onUpdateNotificationConfig?: (config: OrderNotificationConfig) => Promise<void> | void;
+  onOpenAddProduct?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -167,6 +168,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateCategories,
   staffList,
   onUpdateStaffList,
+  onOpenAddProduct,
   heroBannerConfig = DEFAULT_HERO_CONFIG,
   onUpdateHeroBannerConfig,
   topSellingConfig = DEFAULT_TOP_SELLING_CONFIG,
@@ -659,6 +661,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const openAddProductModal = () => {
+    if (onOpenAddProduct) {
+      onOpenAddProduct();
+      return;
+    }
     setProdFormId(null);
     setProdFormName('');
     setProdFormSlug('');
@@ -6175,6 +6181,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Cancel (বাতিল)
                   </button>
                   <button
+                    id="btn-admin-save-product"
                     type="button"
                     disabled={isSavingProduct}
                     onClick={() => handleSaveProductForm()}

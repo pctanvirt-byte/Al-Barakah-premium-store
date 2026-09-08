@@ -1221,6 +1221,27 @@ export default function App() {
 
   // Add Product (Persist directly to Firestore DB)
   const handleAddProduct = async (newProd: Product) => {
+    // 1. Instantly update state in memory for zero UI delay
+    setProducts((prev) => [newProd, ...prev.filter((p) => p.id !== newProd.id)]);
+
+    // 2. Update local backup and remove from deleted set if re-added
+    try {
+      const saved = localStorage.getItem('albarakah_backup_products');
+      const list: Product[] = saved ? JSON.parse(saved) : [];
+      const updated = [newProd, ...list.filter((p) => p.id !== newProd.id)];
+      localStorage.setItem('albarakah_backup_products', JSON.stringify(updated));
+
+      const delRaw = localStorage.getItem('albarakah_deleted_product_ids');
+      if (delRaw) {
+        const delSet = new Set<string>(JSON.parse(delRaw));
+        if (delSet.has(newProd.id)) {
+          delSet.delete(newProd.id);
+          localStorage.setItem('albarakah_deleted_product_ids', JSON.stringify(Array.from(delSet)));
+        }
+      }
+    } catch (e) {}
+
+    // 3. Persist directly to Firestore DB
     await saveProductToDb(newProd);
     showToast(`New item "${newProd.name.slice(0, 20)}..." saved to Database!`);
   };
@@ -1350,6 +1371,7 @@ export default function App() {
         adminEmail={adminAuth.email}
         adminRole={adminAuth.role}
         onViewStore={handleCloseAdmin}
+        onOpenAddProduct={() => setIsAddProductOpen(true)}
         onSignOut={() => {
           setAdminAuth(null);
           localStorage.removeItem('albarakah_admin_session');

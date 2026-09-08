@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, PlusCircle, Layers, Upload, Crop, ZoomIn } from 'lucide-react';
+import { X, PlusCircle, Layers, Upload, Crop, ZoomIn, Check } from 'lucide-react';
 import { Product, Category } from '../types';
 import { CATEGORIES } from '../data/products';
 import { ImageCropZoomModal } from './ImageCropZoomModal';
@@ -44,6 +44,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [badge, setBadge] = useState<'SALE' | 'HOT' | 'NEW' | 'BESTSELLER' | ''>('NEW');
   const [sizes, setSizes] = useState<string[]>([]);
   const [customVariant, setCustomVariant] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Crop / Zoom Modal state
   const [cropModal, setCropModal] = useState<{
@@ -101,59 +102,72 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     setCustomVariant('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const validImages = images.filter(img => Boolean(img && img.trim()));
-    const primaryImg = validImages[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80';
-    const allImages = validImages.length > 0 ? validImages : [primaryImg];
-    const finalSlug = slug.trim() || generateSlug(name);
+    try {
+      setIsSubmitting(true);
+      const validImages = images.filter(img => Boolean(img && img.trim()));
+      const primaryImg = validImages[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80';
+      const allImages = validImages.length > 0 ? validImages : [primaryImg];
+      const finalSlug = slug.trim() || generateSlug(name);
 
-    const newProd: Product = {
-      id: `prod-${Date.now()}`,
-      name: name.trim(),
-      slug: finalSlug,
-      category: category === 'All' ? 'Organic Foods' : category,
-      price: parseFloat(price) || 29.99,
-      originalPrice: originalPrice ? parseFloat(originalPrice) : undefined,
-      rating: 5.0,
-      reviewCount: 1,
-      image: primaryImg,
-      images: allImages,
-      description: description.trim(),
-      features: ['Premium Build Quality', 'Warranty Covered', 'Authentic Goods'],
-      inStock: true,
-      stockCount: parseInt(stockCount) || 10,
-      badge: badge ? badge : undefined,
-      sizes: sizes.length > 0 ? sizes : undefined,
-      tags: [category.toLowerCase(), 'new-arrival']
-    };
+      const newProd: Product = {
+        id: `prod-${Date.now()}`,
+        name: name.trim(),
+        slug: finalSlug,
+        category: category === 'All' ? 'Organic Foods' : category,
+        price: parseFloat(price) || 29.99,
+        originalPrice: originalPrice ? parseFloat(originalPrice) : undefined,
+        rating: 5.0,
+        reviewCount: 1,
+        image: primaryImg,
+        images: allImages,
+        description: description.trim(),
+        features: ['Premium Build Quality', 'Warranty Covered', 'Authentic Goods'],
+        inStock: true,
+        stockCount: parseInt(stockCount) || 10,
+        badge: badge ? badge : undefined,
+        sizes: sizes.length > 0 ? sizes : undefined,
+        tags: [category.toLowerCase(), 'new-arrival']
+      };
 
-    onAddProduct(newProd);
-    onClose();
+      await onAddProduct(newProd);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
       <div 
-        className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 overflow-hidden"
+        className="relative bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <PlusCircle className="w-5 h-5 text-emerald-600" />
-            <h2 className="font-bold text-base text-slate-900">Add New Product to Store</h2>
+        {/* Modal Header */}
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#0a5c36] flex items-center justify-center">
+              <PlusCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-slate-900 leading-tight">Add New Product to Store</h2>
+              <p className="text-[11px] text-slate-500">নতুন প্রোডাক্টের তথ্য ও ছবি যুক্ত করুন</p>
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
+        {/* Scrollable Form Body */}
+        <form id="add-product-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Product Title *</label>
             <input
@@ -428,23 +442,35 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               ))}
             </div>
           </div>
+        </form>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+        {/* Sticky Fixed Bottom Footer - 100% Visible on All Screens */}
+        <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50/95 backdrop-blur-xs shrink-0 flex items-center justify-between gap-3">
+          <div className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>সরাসরি ফায়ারবেস ডাটাবেজে যুক্ত হবে</span>
+          </div>
+
+          <div className="flex items-center gap-2.5 ml-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold cursor-pointer"
+              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 font-semibold cursor-pointer transition-colors"
             >
-              Cancel
+              Cancel (বাতিল)
             </button>
             <button
+              id="btn-save-product"
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold cursor-pointer transition-colors shadow-sm"
+              form="add-product-form"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 rounded-xl bg-[#0a5c36] hover:bg-[#08482a] active:scale-95 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              Save Product
+              <Check className="w-4 h-4 text-emerald-300" />
+              <span>{isSubmitting ? 'সংরক্ষণ হচ্ছে...' : 'Save Product (প্রোডাক্ট সেভ করুন)'}</span>
             </button>
           </div>
-        </form>
+        </div>
       </div>
 
       {/* Image Crop & Zoom Modal */}
