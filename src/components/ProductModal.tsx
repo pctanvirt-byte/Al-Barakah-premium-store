@@ -516,13 +516,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     Save {discountPercentage}%
                   </span>
                 )}
-                {isOutOfStock ? (
+                {isOutOfStock && (
                   <span className="text-xs font-extrabold text-white bg-rose-600 px-2.5 py-1 rounded-md shadow-2xs font-sans uppercase">
                     স্টক আউট (Stock Out)
-                  </span>
-                ) : (
-                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md font-sans">
-                    ইন স্টক {product.stockCount !== undefined ? `(${product.stockCount} টি অবশিষ্ট)` : ''}
                   </span>
                 )}
               </div>
