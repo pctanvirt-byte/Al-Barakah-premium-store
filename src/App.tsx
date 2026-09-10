@@ -168,7 +168,9 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleanList = parsed.filter((p: Product) => p && p.id && !deletedIds.has(p.id));
+          const cleanList = parsed.filter(
+            (p: Product) => p && p.id && !deletedIds.has(p.id) && !p.name?.toLowerCase().includes('100% halal arabian oud')
+          );
           if (cleanList.length > 0) return cleanList;
         }
       }
@@ -418,13 +420,26 @@ export default function App() {
     }
   }, []);
 
+  // Wait for Firestore to confirm the authoritative live products before rendering catalog
   const isInitialMountLoading = useMemo(() => {
-    // If local cache with valid products exists, render immediately with ZERO delay
-    if (!hasLocalCache) {
-      return !isProductsLoaded;
-    }
-    return false;
-  }, [hasLocalCache, isProductsLoaded]);
+    return !isProductsLoaded;
+  }, [isProductsLoaded]);
+
+  // Purge any stale deleted test products from browser's local backup cache
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('albarakah_backup_products');
+      if (saved && saved.toLowerCase().includes('100% halal arabian oud')) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(
+            (p: Product) => !p.name?.toLowerCase().includes('100% halal arabian oud')
+          );
+          localStorage.setItem('albarakah_backup_products', JSON.stringify(cleaned));
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   // Fail-safe unlock after 1.5 seconds in case of slow network connection
   const [forceUnlock, setForceUnlock] = useState(false);
