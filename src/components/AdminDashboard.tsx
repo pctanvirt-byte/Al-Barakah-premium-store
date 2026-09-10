@@ -5161,19 +5161,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* TAB: TOP SELLING PRODUCTS */}
-        {activeTab === 'topSelling' && (
-          <TopSellingAdmin
-            config={topSellingConfig}
-            products={products}
-            onSaveConfig={(newCfg) => {
-              if (onUpdateTopSellingConfig) {
-                onUpdateTopSellingConfig(newCfg);
-              }
-            }}
-          />
-        )}
-
         {/* TAB 10: SETTINGS */}
         {activeTab === 'settings' && (
           <div className="p-6 sm:p-8 space-y-6 max-w-7xl w-full">
@@ -5559,6 +5546,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       >
                         <Globe className="w-3.5 h-3.5" />
                         <span>SEO & Share Studio</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Facebook Pixel & CAPI Settings Card */}
+                <div className="pt-4 border-t border-stone-200">
+                  <div className="p-4 sm:p-5 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-purple-500/10 rounded-2xl border border-blue-200 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Radio className="w-4 h-4 text-blue-700" />
+                          <span className="text-xs font-bold text-stone-900">
+                            Facebook Pixel, Conversions API (CAPI) & Domain Verification
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                            facebookPixelConfig.pixelId ? 'bg-blue-100 text-blue-900 border border-blue-200' : 'bg-stone-200 text-stone-600'
+                          }`}>
+                            {facebookPixelConfig.pixelId ? 'Active' : 'Not Configured'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-600 leading-relaxed">
+                          বিজ্ঞাপন অপটিমাইজেশন, অ্যাড ইভেন্ট ট্র্যাকিং (Purchase, AddToCart, PageView) ও মেটা বিজনেস ডোমেন ভেরিফিকেশন কোড কনফিগার করুন।
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-stone-700 border border-stone-200">
+                            Pixel ID: {facebookPixelConfig.pixelId || 'None'}
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                            facebookPixelConfig.enableCapi ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-stone-100 text-stone-600 border-stone-200'
+                          }`}>
+                            CAPI: {facebookPixelConfig.enableCapi ? 'Enabled' : 'Off'}
+                          </span>
+                          {facebookPixelConfig.domainVerificationCode && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                              ✓ Domain Verified
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsPixelModalOpen(true)}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white text-xs font-bold shadow-xs cursor-pointer transition-all flex items-center gap-2 shrink-0"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>Pixel & CAPI Settings</span>
                       </button>
                     </div>
                   </div>
