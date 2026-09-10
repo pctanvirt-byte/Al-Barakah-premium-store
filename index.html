@@ -13,10 +13,44 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Open+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Rubik:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Open+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Rubik:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Open+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Rubik:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    </noscript>
   </head>
   <body class="h-full bg-[#faf9f6] text-stone-900 antialiased selection:bg-amber-900 selection:text-amber-100">
-    <div id="root" class="min-h-full flex flex-col"></div>
+    <div id="root" class="min-h-full flex flex-col">
+      <!-- Instant Branded Pre-loader (Displays in 0.01s before React bundle executes) -->
+      <div id="app-preloader" style="position: fixed; inset: 0; background: #faf9f6; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="display: flex; flex-direction: column; align-items: center; max-width: 320px; padding: 24px; text-align: center;">
+          <!-- Luxury Brand Badge -->
+          <div style="width: 68px; height: 68px; border-radius: 20px; background: linear-gradient(135deg, #0a5c36 0%, #053b22 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px -5px rgba(10, 92, 54, 0.35); margin-bottom: 16px;">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#d4af37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              <circle cx="12" cy="12" r="2.5" fill="#d4af37" fill-opacity="0.35"/>
+            </svg>
+          </div>
+          <!-- Brand Title & Tagline -->
+          <div style="font-size: 19px; font-weight: 800; letter-spacing: 0.5px; color: #1c1917; text-transform: uppercase;">
+            Al Barakah Premium
+          </div>
+          <div style="margin: 4px 0 20px 0; font-size: 11px; font-weight: 600; color: #0a5c36; letter-spacing: 1.2px; text-transform: uppercase;">
+            Pure Organic & Sunnah Lifestyle
+          </div>
+          <!-- Animated Gold / Emerald Loading Line -->
+          <div style="width: 130px; height: 3.5px; background: #e7e5e4; border-radius: 9999px; overflow: hidden; position: relative;">
+            <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 45%; background: linear-gradient(90deg, #0a5c36, #d4af37); border-radius: 9999px; animation: albarakahLoader 1.2s infinite ease-in-out;"></div>
+          </div>
+        </div>
+        <style>
+          @keyframes albarakahLoader {
+            0% { left: -45%; }
+            50% { left: 40%; width: 55%; }
+            100% { left: 100%; width: 45%; }
+          }
+        </style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

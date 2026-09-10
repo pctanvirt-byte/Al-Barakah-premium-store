@@ -70,7 +70,10 @@ import { CustomerAuthModal } from './components/CustomerAuthModal';
 import { CustomerDashboardModal } from './components/CustomerDashboardModal';
 import { CompareModal } from './components/CompareModal';
 import { CompareFloatingBar } from './components/CompareFloatingBar';
-import { AdminDashboard, StaffMember } from './components/AdminDashboard';
+import type { StaffMember } from './components/AdminDashboard';
+const AdminDashboard = React.lazy(() =>
+  import('./components/AdminDashboard').then((mod) => ({ default: mod.AdminDashboard }))
+);
 import { AdminAuthGuard, SUPER_ADMIN_EMAILS } from './components/AdminAuthGuard';
 import { useAuth } from './contexts/AuthContext';
 
@@ -1363,8 +1366,14 @@ export default function App() {
     }
 
     return (
-      <AdminDashboard
-        products={products}
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-10 h-10 border-4 border-[#0a5c36] border-t-transparent rounded-full animate-spin mb-3" />
+          <p className="text-xs font-bold text-stone-800">অ্যাডমিন প্যানেল লোড হচ্ছে...</p>
+        </div>
+      }>
+        <AdminDashboard
+          products={products}
         orders={orders}
         categories={categories}
         currency={currency}
@@ -1516,6 +1525,7 @@ export default function App() {
           showToast('অর্ডার নোটিফিকেশন সেটিংস সফলভাবে সেভ হয়েছে!');
         }}
       />
+      </React.Suspense>
     );
   }
 
