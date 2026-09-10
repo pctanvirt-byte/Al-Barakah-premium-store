@@ -1371,7 +1371,6 @@ export default function App() {
         adminEmail={adminAuth.email}
         adminRole={adminAuth.role}
         onViewStore={handleCloseAdmin}
-        onOpenAddProduct={() => setIsAddProductOpen(true)}
         onSignOut={() => {
           setAdminAuth(null);
           localStorage.removeItem('albarakah_admin_session');

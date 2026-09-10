@@ -803,24 +803,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const openAddProductModal = () => {
-    if (onOpenAddProduct) {
-      onOpenAddProduct();
-      return;
-    }
     setProdFormId(null);
     setProdFormName('');
     setProdFormSlug('');
-    setProdFormCategory('Organic Foods');
+    setProdFormCategory(categories && categories.length > 0 ? categories[0].name : 'Organic Foods');
     setProdFormSubcategory('');
-    setProdFormPrice('15');
+    setProdFormPrice('');
     setProdFormCostPrice('');
     setProdFormOriginalPrice('');
-    setProdFormImages([
-      'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=800&auto=format&fit=crop&q=80',
-      '',
-      ''
-    ]);
-    setProdFormDescription('Premium quality authentic product with 100% genuine sourcing.');
+    setProdFormImages(['', '', '']);
+    setProdFormDescription('');
     setProdFormStock('30');
     setProdFormBadge('NEW');
     setProdFormSizes([]);
