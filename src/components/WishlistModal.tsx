@@ -25,7 +25,7 @@ export const WishlistModal: React.FC<WishlistModalProps> = ({
   const { user } = useAuth();
   if (!isOpen) return null;
 
-  const rate = currency === 'BDT' ? 120 : 1;
+  const rate = 1;
   const symbol = currency === 'BDT' ? '৳' : '$';
 
   return (

@@ -55,7 +55,7 @@ export const AuthAndTrackView: React.FC<AuthAndTrackViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  const rate = currency === 'BDT' ? 120 : 1;
+  const rate = 1;
   const symbol = currency === 'BDT' ? '৳' : '$';
 
   useEffect(() => {

@@ -39,7 +39,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  const rate = currency === 'BDT' ? 120 : 1;
+  const rate = 1;
   const symbol = currency === 'BDT' ? '৳' : '$';
 
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
